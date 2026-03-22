@@ -1,0 +1,122 @@
+╔════════════════════════════════════════════════════════╗
+║  PolyPred AWS Deployment                              ║
+║  Region:   us-east-1                                     ║
+║  Account:  365292474304                          ║
+║  PyTorch:  Full GPU-enabled build                     ║
+╚════════════════════════════════════════════════════════╝
+
+━━━ [1/11] ECR Repository ━━━
+  ✓ ECR: 365292474304.dkr.ecr.us-east-1.amazonaws.com/polypred-backend
+━━━ [2/11] S3 Buckets ━━━
+{
+    "BucketArn": "arn:aws:s3:::polypred-models-365292474304",
+    "BucketRegion": "us-east-1",
+    "AccessPointAlias": false
+}
+  ✓ s3://polypred-models-365292474304
+{
+    "BucketArn": "arn:aws:s3:::polypred-frontend-365292474304",
+    "BucketRegion": "us-east-1",
+    "AccessPointAlias": false
+}
+  ✓ s3://polypred-frontend-365292474304
+{
+    "BucketArn": "arn:aws:s3:::polypred-build-365292474304",
+    "BucketRegion": "us-east-1",
+    "AccessPointAlias": false
+}
+  ✓ s3://polypred-build-365292474304
+━━━ [3/11] Upload Backend Source ━━━
+  ✓ Source uploaded to s3://polypred-build-365292474304/backend-src.zip
+━━━ [4/11] VPC + Networking ━━━
+  ✓ VPC: vpc-06fc859ec88fd2b34
+  ✓ Subnets: subnet-0000bad8dc0a47ce6, subnet-0e4f2ab23fa625c19
+  ✓ SG: sg-0b2172575af743f85
+━━━ [5/11] IAM Roles ━━━
+  ✓ Roles ready
+━━━ [6/11] CloudWatch Logs ━━━
+  ✓ Log groups ready
+━━━ [7/11] Building Docker Image on AWS (CodeBuild) ━━━
+  Building natively on x86_64 with fast networking — full PyTorch GPU...
+  Build started: polypred-build:516705d8-e203-4cce-810b-665a669bf11d
+  Waiting for build to complete...
+  ⏳ Status: IN_PROGRESS  Phase: PROVISIONING          ⏳ Status: IN_PROGRESS  Phase: PRE_BUILD             ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: COMPLETED           
+  ✓ Docker image built and pushed to ECR!
+━━━ [8/11] Application Load Balancer ━━━
+  ✓ ALB: polypred-alb-175898082.us-east-1.elb.amazonaws.com
+  ✓ Listener: HTTP:80 → backend
+━━━ [9/11] ECS Cluster & Service ━━━
+  ✓ Cluster: polypred-cluster
+  ✓ Task: polypred-task (2048 CPU / 8192 MiB)
+  Updating service (force new deployment)...
+  ✓ Service: polypred-service
+━━━ [10/11] Building & Deploying Frontend ━━━
+  Building Next.js with API_URL=http://polypred-alb-175898082.us-east-1.elb.amazonaws.com ...
+
+> polypred-frontend@1.0.0 build
+> next build
+
+  ▲ Next.js 14.2.35
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/12) ...
+   Generating static pages (3/12) 
+   Generating static pages (6/12) 
+   Generating static pages (9/12) 
+ ✓ Generating static pages (12/12)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    2.52 kB         100 kB
+├ ○ /_not-found                          880 B          88.6 kB
+├ ○ /compare                             1.59 kB         202 kB
+├ ○ /features                            4.12 kB        91.8 kB
+├ ○ /models                              3.35 kB        97.6 kB
+├ ○ /predict                             2.09 kB         202 kB
+├ ○ /reaction-validator                  3.39 kB         203 kB
+├ ○ /results                             5.33 kB         200 kB
+├ ○ /training                            5.28 kB         196 kB
+└ ○ /upload                              4.03 kB        91.7 kB
++ First Load JS shared by all            87.7 kB
+  ├ chunks/117-2f2f75bb9514a967.js       32 kB
+  ├ chunks/fd9d1056-4f30860b54ba3835.js  53.7 kB
+  └ other shared chunks (total)          1.99 kB
+
+
+○  (Static)  prerendered as static content
+
+  ✓ Frontend built (static export)
+  ✓ Uploaded to s3://polypred-frontend-365292474304/
+  ✓ S3 website hosting enabled
+━━━ [11/11] CloudFront CDN ━━━
+  ⚠ CloudFront skipped — using S3 website URL
+
+━━━ Waiting for backend to start... ━━━
+  ⏳ Waiting for ECS task... (1/40)  ⏳ Waiting for ECS task... (2/40)  ⏳ Waiting for ECS task... (3/40)  ⏳ Waiting for ECS task... (4/40)  ⏳ Waiting for ECS task... (5/40)  ⏳ Waiting for ECS task... (6/40)  ⏳ Waiting for ECS task... (7/40)  ⏳ Waiting for ECS task... (8/40)  ⏳ Waiting for ECS task... (9/40)  ⏳ Waiting for ECS task... (10/40)  ⏳ Waiting for ECS task... (11/40)  ⏳ Waiting for ECS task... (12/40)  ⏳ Waiting for ECS task... (13/40)  ⏳ Waiting for ECS task... (14/40)  ✓ Backend running! (1 task)
+  Health check: {"status":"healthy"}
+
+╔════════════════════════════════════════════════════════════════════╗
+║                🚀 PolyPred Deployment Complete!                  ║
+╠════════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║  🌐 SHARE THIS URL:                                             ║
+║     http://polypred-frontend-365292474304.s3-website-us-east-1.amazonaws.com
+║                                                                  ║
+║  🔗 Backend API:  http://polypred-alb-175898082.us-east-1.elb.amazonaws.com
+║  📊 API Docs:     http://polypred-alb-175898082.us-east-1.elb.amazonaws.com/docs
+║                                                                  ║
+║  AWS Resources:                                                  ║
+║    ECR:     365292474304.dkr.ecr.us-east-1.amazonaws.com/polypred-backend
+║    ECS:     polypred-cluster / polypred-service
+║    ALB:     polypred-alb-175898082.us-east-1.elb.amazonaws.com
+║    S3:      s3://polypred-frontend-365292474304/
+║    Logs:    /ecs/polypred
+║                                                                  ║
+╚════════════════════════════════════════════════════════════════════╝
+
+💡 Redeploy:    ./deploy-aws.sh
+💡 Tear down:   ./teardown-aws.sh --confirm

@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - AWS_REGION=us-east-1
+      - S3_BUCKET=polypred-models
+      - S3_MODEL_PREFIX=models/
+      - MODEL_CACHE_DIR=/tmp/polypred_models
+      - ALLOWED_ORIGINS=*
+    volumes:
+      - polypred-data:/tmp/polypred_data
+      - model-cache:/tmp/polypred_models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  polypred-data:
+  model-cache:

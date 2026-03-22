@@ -1,0 +1,64 @@
+"""PolyPred Backend Configuration."""
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+class Settings:
+    PROJECT_NAME: str = "PolyPred API"
+    VERSION: str = "1.0.0"
+    DESCRIPTION: str = "Plug-and-play ML models for copolymerization reactivity ratio prediction"
+
+    # AWS
+    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
+    S3_BUCKET: str = os.getenv("S3_BUCKET", "polypred-models")
+    S3_MODEL_PREFIX: str = os.getenv("S3_MODEL_PREFIX", "models/")
+
+    # Model paths (local cache)
+    MODEL_CACHE_DIR: Path = Path(os.getenv("MODEL_CACHE_DIR", "/tmp/polypred_models"))
+
+    # Benchmark models directory (pre-trained weights from Specific_Models_Final)
+    BENCHMARK_MODELS_DIR: Path = Path(os.getenv(
+        "BENCHMARK_MODELS_DIR",
+        str(Path(__file__).resolve().parent.parent.parent / "Specific_Models_Final")
+    ))
+
+    # CORS
+    ALLOWED_ORIGINS: list = os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,https://polypred.vercel.app,*"
+    ).split(",")
+
+    # Device
+    DEVICE: str = os.getenv("DEVICE", "cpu")  # "cpu" or "cuda"
+
+    # Morgan fingerprint defaults
+    FP_RADIUS: int = 2
+    FP_NBITS: int = 2048
+
+    # Molecular graph feature dimensions (from notebooks)
+    NODE_FEATURE_DIM: int = 58
+    EDGE_FEATURE_DIM: int = 13
+    GLOBAL_FEATURE_DIM: int = 7
+    LATENT_DIM: int = 64
+
+    # All available model types
+    MODEL_TYPES: list = [
+        # Benchmark models (pre-trained weights in Specific_Models_Final/)
+        "siamese_lstm",
+        "siamese_regression",
+        "siamese_bayesian",
+        "lstm_bayesian",
+        "lstm_siamese_bayesian",
+        "standalone_lstm",
+        "ensemble_methods",
+        "decision_tree",
+        "random_forest",
+        "autoencoder",
+    ]
+
+
+settings = Settings()
+settings.MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
