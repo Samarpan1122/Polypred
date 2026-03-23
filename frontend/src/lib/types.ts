@@ -59,6 +59,9 @@ export type ModelCategory =
   | "traditional_ml"
   | "encoder"
   | "traditional"
+  | "graph_based"
+  | "lstm"
+  | "autoencoder"
   | "siamese"
   | "generative"
   | "benchmark"
@@ -68,6 +71,9 @@ export const MODEL_CATEGORY_LABELS: Record<string, string> = {
   deep_learning: "Deep Learning",
   traditional_ml: "Traditional ML",
   traditional: "Traditional ML",
+  graph_based: "Graph-Based (GNN)",
+  lstm: "LSTM (Sequence)",
+  autoencoder: "Autoencoder (VAE)",
   encoder: "Encoder / Autoencoder",
   siamese: "Siamese Networks",
   generative: "Generative Models",
@@ -124,13 +130,14 @@ export interface DatasetStats {
 
 // ─── Feature types ──────────────────────────────────────
 export type FeaturizationMethod =
-  | "morgan_fp"
-  | "flat_graph"
-  | "rdkit_descriptors"
-  | "autocorr_3d"
-  | "combined_2d_3d"
-  | "graph_features"
-  | "all";
+  | "steric_index"
+  | "electronic_properties"
+  | "resonance_stabilization"
+  | "vinyl_substitution"
+  | "hybridization_index"
+  | "polarity"
+  | "aromaticity"
+  | "h_bonding_capacity";
 
 export type FeatureReductionMethod =
   | "none"
@@ -167,7 +174,7 @@ export type CVMethod =
 export interface TrainRequest {
   dataset_id: string;
   feature_set_id?: string;
-  featurization: FeaturizationMethod;
+  featurization: FeaturizationMethod[];
   models: string[];
   target_cols: string[];
   smiles_col_a: string;
@@ -265,6 +272,8 @@ export interface AvailableModel {
   id: string;
   name: string;
   description: string;
+  estimated_time_seconds?: number;
+  params?: Record<string, unknown>;
 }
 
 // ─── Reaction Validator types ───────────────────────────

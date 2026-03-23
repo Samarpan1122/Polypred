@@ -186,14 +186,14 @@ def _global_features(mol) -> list[float]:
         if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
             a1, a2 = bond.GetBeginAtom(), bond.GetEndAtom()
             if a1.GetSymbol() == "C" and a2.GetSymbol() == "C":
-                vinyl_count += 1
+                vinyl_count = vinyl_count + 1
     has_vinyl = float(vinyl_count > 0)
     frac_csp3 = float(Descriptors.FractionCSP3(mol))
     ring_complexity = float(ri.NumRings())
     return [n_rot, n_ring, n_arom, float(vinyl_count), has_vinyl, frac_csp3, ring_complexity]
 
 
-def smiles_to_graph(smiles: str):
+def smiles_to_graph(smiles: str) -> dict[str, np.ndarray] | None:
     """Convert SMILES → dict with node_features, edge_index, edge_attr, global_features."""
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
@@ -226,7 +226,7 @@ def smiles_to_graph(smiles: str):
     }
 
 
-def graph_to_flat_features(graph: dict) -> np.ndarray:
+def graph_to_flat_features(graph: dict[str, np.ndarray]) -> np.ndarray:
     """Mean + max pool of node features + vinyl count + global → 124 per monomer."""
     nf = graph["node_features"]
     if nf.shape[0] == 0:
@@ -263,6 +263,79 @@ def pair_flat_features_ensemble(smiles_a: str, smiles_b: str) -> np.ndarray | No
     flat_a = np.concatenate([ga["node_features"].mean(axis=0), ga["global_features"]])
     flat_b = np.concatenate([gb["node_features"].mean(axis=0), gb["global_features"]])
     return np.concatenate([flat_a, flat_b])
+
+
+_BASE_65_NAMES = [
+    "Is_B", "Is_C", "Is_N", "Is_O", "Is_F", "Is_Si", "Is_P", "Is_S", "Is_Cl", "Is_Br", "Is_I", "Is_Fe", "Is_Ni", "Is_Zn", "Is_Sn", "Is_Na", "Is_K", "Is_Other_Element",
+    "Degree_1", "Degree_2", "Degree_3", "Degree_4", "Degree_5", "Degree_Other",
+    "FormalCharge", "NumRadicalElectrons",
+    "Hyb_UNSPECIFIED", "Hyb_S", "Hyb_SP", "Hyb_SP2", "Hyb_SP3", "Hyb_SP3D", "Hyb_SP3D2", "Hyb_Other",
+    "IsAromatic",
+    "TotalNumHs_0", "TotalNumHs_1", "TotalNumHs_2", "TotalNumHs_3", "TotalNumHs_4", "TotalNumHs_Other",
+    "Electronegativity", "AvgNeighborEN", "ENDifference", "EWGCount",
+    "VdwRadius",
+    "IsVinyl", "HasAlphaSubst", "HasEWG",
+    "IsAtomAromatic", "HasAromaticNeighbor",
+    "IsSP2",
+    "NumDoubleBonds",
+    "NumRingsContainingAtom", "MinRingSize", "IsIn6Ring", "IsAromaticAndInRing", "IsInRestrictedConform",
+    "NumRotatableBonds", "NumRings", "NumAromaticRings",
+    "SumReactionCenters", "AnyReactionCenters", "FractionCSP3", "NumSymmSSSR"
+]
+
+_BIG8_FEATURE_MAP = {
+    "steric_index": [
+        "Degree", "NonHNeighbors", "DenseNeighbors", "InRing", 
+        "RingCount", "MinRingSize", "In6Ring", "RestrictedConform", 
+        "Is_Si", "Is_P", "Is_S", "Is_Fe", "Is_Ni", "Is_Zn", "Is_Sn", "Is_C", "Is_B",
+        "NumRotatableBonds", "NumRings", "AnyReactionCenters", "SumReactionCenters",
+        "FractionCSP3", "NumSymmSSSR", "VdwRadius", "NumRingsContainingAtom"
+    ],
+    "electronic_properties": [
+        "FormalCharge", "NumRadicalElectrons", "TotalNumHs", "Electronegativity", "AvgNeighborEN", "ENDifference", "EWGCount", "HasEWG",
+        "Is_N", "Is_O", "Is_F", "Is_Cl", "Is_Br", "Is_I", "Is_Na", "Is_K", "Is_Other_Element"
+    ],
+    "resonance_stabilization": [
+        "IsAromatic", "IsAtomAromatic", "HasAromaticNeighbor", "IsAromaticAndInRing", "NumAromaticRings", "IsSP2", "NumDoubleBonds"
+    ],
+    "vinyl_substitution": [
+        "IsVinyl", "HasAlphaSubst", "HasEWG", "NumDoubleBonds"
+    ],
+    "hybridization_index": [
+        "Hyb", "IsSP2"
+    ],
+    "polarity": [
+        "Electronegativity", "AvgNeighborEN", "ENDifference", "Is_N", "Is_O", "Is_F", "Is_Cl", "Is_Br", "Is_I", "Is_Na", "Is_K"
+    ],
+    "aromaticity": [
+        "IsAromatic", "IsAtomAromatic", "HasAromaticNeighbor", "IsAromaticAndInRing", "NumAromaticRings"
+    ],
+    "h_bonding_capacity": [
+        "Is_N", "Is_O", "Is_F", "TotalNumHs"
+    ]
+}
+
+def pair_flat_features_ensemble_masked(smiles_a: str, smiles_b: str, method: str) -> np.ndarray | None:
+    """130-dim vector subsetted using the requested Big 8 featurization mask."""
+    flat_vector = pair_flat_features_ensemble(smiles_a, smiles_b)
+    if flat_vector is None:
+        return None
+    
+    if method == "all":
+        return flat_vector
+        
+    keywords = _BIG8_FEATURE_MAP.get(method, [])
+    if not keywords:
+        return flat_vector
+        
+    mask = []
+    # Both Monomer A and B have the same 65 features
+    for _ in range(2):
+        for name in _BASE_65_NAMES:
+            matched = any(kw in name for kw in keywords)
+            mask.append(matched)
+            
+    return flat_vector[mask]
 
 
 # ──────────────────────────────────────────────────────────────────────

@@ -42,19 +42,18 @@ except ImportError:
 # ──────────────────────────────────────────────────────────────────────
 #  Category helpers
 # ──────────────────────────────────────────────────────────────────────
-ENCODER_MODELS = {"autoencoder_standard", "autoencoder_denoising", "vae"}
+ENCODER_MODELS = {"autoencoder"}
 
-# Benchmark categories
-BENCHMARK_GRAPH_MODELS = {
+# Benchmark categories (the 10 models from Specific_Models_Final)
+deep_learning_models = {
     "siamese_lstm", "siamese_regression", "siamese_bayesian", "lstm_siamese_bayesian",
-    "autoencoder",
+    "lstm_bayesian", "standalone_lstm", "autoencoder"
 }
-BENCHMARK_SMILES_MODELS = {"lstm_bayesian", "standalone_lstm"}
-BENCHMARK_TRADITIONAL_MODELS = {"ensemble_methods", "decision_tree", "random_forest"}
-BENCHMARK_MODELS = BENCHMARK_GRAPH_MODELS | BENCHMARK_SMILES_MODELS | BENCHMARK_TRADITIONAL_MODELS
+traditional_ml_models = {"ensemble_methods", "decision_tree", "random_forest"}
 
 MODEL_CATEGORIES = {
-    "benchmark": BENCHMARK_MODELS,
+    "deep_learning": deep_learning_models,
+    "traditional_ml": traditional_ml_models,
 }
 
 

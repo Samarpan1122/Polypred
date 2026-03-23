@@ -115,7 +115,7 @@ export default function ModelsPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Model Catalog</h1>
         <p className="text-sm text-[var(--text-muted)]">
-          All {models.length} models available in PolyPred
+          All {models.length} models available in CopolPred
         </p>
       </div>
 

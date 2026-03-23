@@ -42,11 +42,14 @@ import {
 } from "recharts";
 
 const FEAT_OPTIONS: { id: FeaturizationMethod; label: string }[] = [
-  { id: "morgan_fp", label: "Morgan FP" },
-  { id: "flat_graph", label: "Flat Graph" },
-  { id: "rdkit_descriptors", label: "RDKit Desc" },
-  { id: "autocorr_3d", label: "3D Autocorr" },
-  { id: "combined_2d_3d", label: "Combined 2D+3D" },
+  { id: "steric_index", label: "Steric Index" },
+  { id: "electronic_properties", label: "Electronic Properties" },
+  { id: "resonance_stabilization", label: "Resonance Stabilization" },
+  { id: "vinyl_substitution", label: "Vinyl Substitution" },
+  { id: "hybridization_index", label: "Hybridization Index" },
+  { id: "polarity", label: "Polarity" },
+  { id: "aromaticity", label: "Aromaticity" },
+  { id: "h_bonding_capacity", label: "H Bonding Capacity" },
 ];
 
 export default function TrainingPage() {
@@ -62,7 +65,7 @@ export default function TrainingPage() {
   const [smilesB, setSmilesB] = useState("");
   const [targetCols, setTargetCols] = useState<string[]>([]);
   const [featurization, setFeaturization] =
-    useState<FeaturizationMethod>("morgan_fp");
+    useState<FeaturizationMethod[]>(["steric_index"]);
   const [selectedModels, setSelectedModels] = useState<string[]>([
     "random_forest",
   ]);
@@ -269,19 +272,55 @@ export default function TrainingPage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs text-[var(--text-muted)]">
-                  SMILES A
+                  Featurization Method
                 </label>
-                <select
-                  value={smilesA}
-                  onChange={(e) => setSmilesA(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-hover)] px-3 py-2 text-sm text-white"
-                >
-                  {dsInfo?.columns.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById("feat-dropdown");
+                      if (el) el.style.display = el.style.display === "none" ? "block" : "none";
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--bg-hover)] px-3 py-2 text-sm text-white"
+                  >
+                    <span className="truncate">
+                      {featurization.length === 0
+                        ? "Select Featurizations..."
+                        : featurization.length === FEAT_OPTIONS.length
+                          ? "All Features"
+                          : featurization
+                              .map((f) => FEAT_OPTIONS.find((o) => o.id === f)?.label)
+                              .join(", ")}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </button>
+                  <div
+                    id="feat-dropdown"
+                    style={{ display: "none" }}
+                    className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-[var(--border)] bg-[#1a1c23] py-1 shadow-lg"
+                  >
+                    {FEAT_OPTIONS.map((opt) => (
+                      <div
+                        key={opt.id}
+                        onClick={() => {
+                          setFeaturization((prev) => {
+                            if (prev.includes(opt.id)) {
+                              const next = prev.filter((x) => x !== opt.id);
+                              return next.length > 0 ? next : prev;
+                            }
+                            return [...prev, opt.id];
+                          });
+                        }}
+                        className="flex cursor-pointer items-center px-3 py-2 text-sm text-white hover:bg-[var(--bg-hover)]"
+                      >
+                        <div className={`mr-2 flex h-4 w-4 items-center justify-center rounded border ${featurization.includes(opt.id) ? "border-primary-500 bg-primary-500" : "border-gray-500"}`}>
+                          {featurization.includes(opt.id) && <CheckCircle className="h-3 w-3 text-white" />}
+                        </div>
+                        {opt.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-xs text-[var(--text-muted)]">
@@ -381,9 +420,17 @@ export default function TrainingPage() {
                 {FEAT_OPTIONS.map((f) => (
                   <button
                     key={f.id}
-                    onClick={() => setFeaturization(f.id)}
+                    onClick={() => {
+                      setFeaturization((prev) => {
+                        if (prev.includes(f.id)) {
+                          const next = prev.filter((x) => x !== f.id);
+                          return next.length > 0 ? next : prev;
+                        }
+                        return [...prev, f.id];
+                      });
+                    }}
                     className={`rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-                      featurization === f.id
+                      featurization.includes(f.id)
                         ? "border-primary-400 bg-primary-600/10 text-primary-400"
                         : "border-[var(--border)] text-[var(--text-muted)] hover:border-primary-400/30"
                     }`}
@@ -437,13 +484,20 @@ export default function TrainingPage() {
                       key={m.id}
                       onClick={() => toggleModel(m.id)}
                       title={m.description}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                      className={`flex flex-col items-start rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                         selectedModels.includes(m.id)
                           ? "border-primary-400 bg-primary-600/10 text-primary-400"
                           : "border-[var(--border)] text-[var(--text-muted)] hover:border-primary-400/30 hover:text-white"
                       }`}
                     >
-                      {m.name}
+                      <span>{m.name}</span>
+                      {m.estimated_time_seconds !== undefined && (
+                        <span className={`mt-0.5 text-[10px] ${selectedModels.includes(m.id) ? "text-primary-400/70" : "text-[var(--text-muted)]"}`}>
+                          ⏱ ~{m.estimated_time_seconds < 60
+                            ? `${m.estimated_time_seconds}s`
+                            : `${Math.round(m.estimated_time_seconds / 60)}m`}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

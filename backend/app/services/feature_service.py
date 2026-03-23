@@ -38,7 +38,7 @@ def featurize_dataset(
     dataset_id: str,
     smiles_col_a: str,
     smiles_col_b: str,
-    method: FeaturizationMethod,
+    methods: list[FeaturizationMethod],
     reduction: FeatureReductionMethod = FeatureReductionMethod.NONE,
     reduction_params: dict[str, Any] | None = None,
 ) -> dict:
@@ -51,11 +51,13 @@ def featurize_dataset(
     valid_indices = []
     feature_names: list[str] = []
 
-    # If method is ALL, iterate each real method and concatenate
-    if method == FeaturizationMethod.ALL:
-        real_methods = [m for m in FeaturizationMethod if m != FeaturizationMethod.ALL]
-    else:
-        real_methods = [method]
+    real_methods = []
+    for m in methods:
+        if m == FeaturizationMethod.ALL:
+            real_methods = [x for x in FeaturizationMethod if x != FeaturizationMethod.ALL]
+            break
+        elif m not in real_methods:
+            real_methods.append(m)
 
     for i, row in df.iterrows():
         sa, sb = str(row[smiles_col_a]), str(row[smiles_col_b])
@@ -79,14 +81,23 @@ def featurize_dataset(
     n_samples, n_raw = X.shape
 
     # Generate feature names
-    if method == FeaturizationMethod.MORGAN_FP:
-        feature_names = [f"fp_{i}" for i in range(n_raw)]
-    elif method == FeaturizationMethod.RDKIT_DESCRIPTORS:
-        feature_names = [f"desc_{i}" for i in range(n_raw)]
-    elif method in (FeaturizationMethod.FLAT_GRAPH, FeaturizationMethod.GRAPH_FEATURES):
-        feature_names = [f"gf_{i}" for i in range(n_raw)]
-    else:
+    if any(m == FeaturizationMethod.ALL for m in methods):
         feature_names = [f"feat_{i}" for i in range(n_raw)]
+    else:
+        from app.models.feature_engineering import _BASE_65_NAMES, _BIG8_FEATURE_MAP
+        feature_names = []
+        for m in real_methods:
+            keywords = _BIG8_FEATURE_MAP.get(m.value, [])
+            mask = []
+            for _ in range(2):
+                for name in _BASE_65_NAMES:
+                    mask.append(any(kw in name for kw in keywords))
+            base_names = [(f"{name}_A" if j == 0 else f"{name}_B") for j in range(2) for name in _BASE_65_NAMES]
+            m_names = [fn for fn, mk in zip(base_names, mask) if mk]
+            feature_names.extend(m_names)
+        
+        if not feature_names:
+            feature_names = [f"feat_{i}" for i in range(n_raw)]
 
     # ── 2. Handle NaN / Inf ───────────────────────────────
     X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
@@ -196,43 +207,8 @@ def _compute_features(
 ) -> np.ndarray | None:
     """Compute features for a single pair."""
     try:
-        if method == FeaturizationMethod.MORGAN_FP:
-            fp_a = smiles_to_morgan_fp(smiles_a)
-            fp_b = smiles_to_morgan_fp(smiles_b)
-            if fp_a is None or fp_b is None:
-                return None
-            return np.concatenate([fp_a, fp_b])  # 4096
-
-        elif method == FeaturizationMethod.FLAT_GRAPH:
-            return pair_flat_features(smiles_a, smiles_b)  # 248
-
-        elif method == FeaturizationMethod.RDKIT_DESCRIPTORS:
-            d_a = compute_rdkit_descriptors(smiles_a)
-            d_b = compute_rdkit_descriptors(smiles_b)
-            if d_a is None or d_b is None:
-                return None
-            return np.concatenate([d_a, d_b])
-
-        elif method == FeaturizationMethod.AUTOCORR_3D:
-            a3d_a = compute_3d_autocorr(smiles_a)
-            a3d_b = compute_3d_autocorr(smiles_b)
-            if a3d_a is None or a3d_b is None:
-                return None
-            return np.concatenate([a3d_a, a3d_b])  # 160
-
-        elif method == FeaturizationMethod.COMBINED_2D_3D:
-            fp_a = smiles_to_morgan_fp(smiles_a)
-            fp_b = smiles_to_morgan_fp(smiles_b)
-            a3d_a = compute_3d_autocorr(smiles_a)
-            a3d_b = compute_3d_autocorr(smiles_b)
-            if any(x is None for x in [fp_a, fp_b, a3d_a, a3d_b]):
-                return None
-            return np.concatenate([fp_a, a3d_a, fp_b, a3d_b])  # 2128×2
-
-        elif method == FeaturizationMethod.GRAPH_FEATURES:
-            return pair_flat_features(smiles_a, smiles_b)
-
-        return None
+        from app.models.feature_engineering import pair_flat_features_ensemble_masked
+        return pair_flat_features_ensemble_masked(smiles_a, smiles_b, method.value)
     except Exception:
         return None
 

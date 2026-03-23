@@ -138,7 +138,7 @@ export async function featurize(body: {
   dataset_id: string;
   smiles_col_a: string;
   smiles_col_b: string;
-  method: string;
+  method: string | string[];
   reduction?: string;
   reduction_params?: Record<string, number>;
 }): Promise<FeatureSetInfo> {

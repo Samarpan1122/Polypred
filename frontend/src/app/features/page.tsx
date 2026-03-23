@@ -13,34 +13,44 @@ import type {
 const FEAT_METHODS: { id: FeaturizationMethod; label: string; desc: string }[] =
   [
     {
-      id: "morgan_fp",
-      label: "Morgan Fingerprints",
-      desc: "4096-bit circular fingerprints (concat for pair → 8192)",
+      id: "steric_index",
+      label: "Steric Index",
+      desc: "Size of atoms, bond counts, ring structures",
     },
     {
-      id: "flat_graph",
-      label: "Flat Graph Features",
-      desc: "58 node + 13 edge + 7 global → 248-dim per monomer",
+      id: "electronic_properties",
+      label: "Electronic Properties",
+      desc: "Charge separation, electron density",
     },
     {
-      id: "rdkit_descriptors",
-      label: "RDKit Descriptors",
-      desc: "200+ physicochemical descriptors per molecule",
+      id: "resonance_stabilization",
+      label: "Resonance Stabilization",
+      desc: "Delocalized electrons",
     },
     {
-      id: "autocorr_3d",
-      label: "3D Autocorrelation",
-      desc: "160-dim 3D conformer-based descriptors",
+      id: "vinyl_substitution",
+      label: "Vinyl Substitution",
+      desc: "Specific reactivity of the double bond",
     },
     {
-      id: "combined_2d_3d",
-      label: "Combined 2D+3D",
-      desc: "RDKit descriptors + 3D autocorrelation combined",
+      id: "hybridization_index",
+      label: "Hybridization",
+      desc: "Geometry of bonds",
     },
     {
-      id: "all",
-      label: "All Methods",
-      desc: "Concatenate all featurization methods",
+      id: "polarity",
+      label: "Polarity",
+      desc: "Dipole moments, heteroatoms",
+    },
+    {
+      id: "aromaticity",
+      label: "Aromaticity",
+      desc: "Benzene-like stability",
+    },
+    {
+      id: "h_bonding_capacity",
+      label: "H Bonding Capacity",
+      desc: "Donor/Acceptor potential",
     },
   ];
 
@@ -77,7 +87,7 @@ export default function FeaturesPage() {
   const [selectedDs, setSelectedDs] = useState<string>("");
   const [smilesA, setSmilesA] = useState("");
   const [smilesB, setSmilesB] = useState("");
-  const [method, setMethod] = useState<FeaturizationMethod>("morgan_fp");
+  const [methods, setMethods] = useState<FeaturizationMethod[]>(["steric_index"]);
   const [reduction, setReduction] = useState<FeatureReductionMethod>("none");
   const [pcaComponents, setPcaComponents] = useState(50);
   const [corrThreshold, setCorrThreshold] = useState(0.95);
@@ -121,7 +131,7 @@ export default function FeaturesPage() {
         dataset_id: selectedDs,
         smiles_col_a: smilesA,
         smiles_col_b: smilesB,
-        method,
+        method: methods,
         reduction: reduction !== "none" ? reduction : undefined,
         reduction_params: Object.keys(params).length > 0 ? params : undefined,
       });
@@ -220,13 +230,26 @@ export default function FeaturesPage() {
               {FEAT_METHODS.map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => setMethod(m.id)}
-                  className={`rounded-lg border p-3 text-left transition-all ${
-                    method === m.id
+                  onClick={() => {
+                    setMethods((prev) => {
+                      if (prev.includes(m.id)) {
+                        const next = prev.filter((x) => x !== m.id);
+                        return next.length > 0 ? next : prev;
+                      }
+                      return [...prev, m.id];
+                    });
+                  }}
+                  className={`relative overflow-hidden rounded-lg border p-3 text-left transition-all ${
+                    methods.includes(m.id)
                       ? "border-primary-400 bg-primary-600/10"
                       : "border-[var(--border)] hover:border-primary-400/30"
                   }`}
                 >
+                  {methods.includes(m.id) && (
+                    <div className="absolute right-3 top-3 text-primary-400">
+                      <CheckCircle className="h-4 w-4" />
+                    </div>
+                  )}
                   <div className="text-sm font-medium text-white">
                     {m.label}
                   </div>

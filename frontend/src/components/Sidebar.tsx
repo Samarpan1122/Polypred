@@ -23,8 +23,6 @@ const NAV_ITEMS = [
   { label: "Training", href: "/training", icon: Dumbbell },
   { label: "Results", href: "/results", icon: BarChart3 },
   { label: "Predict", href: "/predict", icon: Beaker },
-  { label: "Reaction Validator", href: "/reaction-validator", icon: FlaskRound },
-  { label: "Compare", href: "/compare", icon: GitCompare },
   { label: "Models", href: "/models", icon: Cpu },
 ];
 
@@ -38,9 +36,8 @@ export default function Sidebar() {
         <FlaskConical className="h-8 w-8 text-primary-400" />
         <div>
           <h1 className="text-lg font-bold tracking-tight text-white">
-            PolyPred
+            CopolPred
           </h1>
-          <p className="text-xs text-[var(--text-muted)]">ML Platform v2</p>
         </div>
       </div>
 
@@ -93,7 +90,7 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="border-t border-[var(--border)] px-6 py-4">
         <p className="text-xs text-[var(--text-muted)]">
-          27+ ML Models&nbsp;·&nbsp;Full Pipeline
+          10 ML Models&nbsp;·&nbsp;Full Pipeline
         </p>
       </div>
     </aside>

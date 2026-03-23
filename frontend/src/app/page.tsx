@@ -59,32 +59,18 @@ const INFERENCE = [
     color: "text-primary-400",
   },
   {
-    icon: FlaskRound,
-    title: "Reaction Validator",
-    desc: "Validate SMILES pairs and find the best models for prediction.",
-    href: "/reaction-validator",
-    color: "text-yellow-400",
-  },
-  {
-    icon: GitCompare,
-    title: "Compare",
-    desc: "Benchmark all models side-by-side with charts.",
-    href: "/compare",
-    color: "text-accent-400",
-  },
-  {
     icon: Cpu,
     title: "Model Catalog",
-    desc: "Browse all 27+ model architectures and details.",
+    desc: "Browse all 10 model architectures and details.",
     href: "/models",
     color: "text-purple-400",
   },
 ];
 
 const STATS = [
-  { label: "ML Models", value: "27+" },
-  { label: "Deep Learning", value: "11" },
-  { label: "Traditional ML", value: "13" },
+  { label: "ML Models", value: "10" },
+  { label: "Deep Learning", value: "7" },
+  { label: "Traditional ML", value: "3" },
   { label: "Feature Methods", value: "6" },
   { label: "HP Tuning", value: "3" },
   { label: "Viz Types", value: "8+" },
@@ -99,17 +85,14 @@ export default function DashboardPage() {
         <div className="relative space-y-4">
           <div className="flex items-center gap-2">
             <FlaskConical className="h-6 w-6 text-primary-400" />
-            <span className="rounded-full bg-primary-600/10 px-3 py-0.5 text-xs font-medium text-primary-400">
-              v2.0
-            </span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            PolyPred
+            CopolPred
           </h1>
           <p className="max-w-2xl text-[var(--text-muted)]">
             Full ML experimentation platform for copolymerisation
             reactivity-ratio prediction. Upload datasets, engineer features,
-            train <strong className="text-white">27+ models</strong> with
+            train <strong className="text-white">10 models</strong> with
             hyperparameter tuning, and visualise every metric — from loss curves
             to predicted vs actual scatter plots.
           </p>

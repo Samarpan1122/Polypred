@@ -95,12 +95,28 @@ def _load_progress(job_id: str) -> TrainProgress | None:
     return None
 
 # ──────────────────────────────────────────────────────────
-#  Default HP grids for each model type
+#  Default HP grids for each model type  (matches Specific_Models_Final IPYNBs)
 # ──────────────────────────────────────────────────────────
 DEFAULT_HP_GRIDS: dict[str, dict[str, list]] = {
-    "decision_tree": {"max_depth": [5, 10, 15, 20, None], "min_samples_split": [2, 5, 10]},
-    "random_forest": {"n_estimators": [100, 200, 500], "max_depth": [10, 15, 20, None]},
-    "ensemble_methods": {"n_estimators": [50, 100, 200], "max_depth": [3, 5, 7]},
+    # Decision_Tree.ipynb: RandomizedSearchCV param_dist
+    "decision_tree": {
+        "max_depth": [3, 5, 7, 10, 15, 20, None],
+        "min_samples_split": [2, 3, 5, 7, 10],
+        "min_samples_leaf": [1, 2, 3, 5],
+        "max_features": ["sqrt", "log2", None],
+    },
+    # Random_Forest.ipynb: GridSearchCV param_grid
+    "random_forest": {
+        "n_estimators": [100, 200],
+        "max_depth": [10, 20, None],
+        "min_samples_split": [2, 5],
+    },
+    # Ensemble_Methods.ipynb: XGBoost GridSearchCV xgb_param
+    "ensemble_methods": {
+        "n_estimators": [200, 400],
+        "max_depth": [3, 5],
+        "learning_rate": [0.05, 0.1],
+    },
 }
 
 
@@ -339,7 +355,10 @@ def _train_single_model(
 
 
 # ──────────────────────────────────────────────────────────
-#  Traditional ML training (with HP tuning)
+#  Traditional ML training — matches Specific_Models_Final IPYNBs exactly
+#  Decision_Tree.ipynb: RandomizedSearchCV → narrow GridSearchCV → KFold(10)
+#  Random_Forest.ipynb: GridSearchCV(n_est=[100,200], max_depth=[10,20,None], cv=5) → KFold(10)
+#  Ensemble_Methods.ipynb: ExtraTrees(200) + GradBoosting(200,depth=4) + XGB(200,depth=4,lr=0.05)
 # ──────────────────────────────────────────────────────────
 def _train_traditional(
     mt: str, X_train, Y_train, X_test, Y_test,
@@ -349,7 +368,6 @@ def _train_traditional(
     result = ModelResult(model_name=mt, model_type=mt)
     t0 = time.time()
 
-    # Train separate models for r1 and r2
     y_true_r1_all, y_pred_r1_all = [], []
     y_true_r2_all, y_pred_r2_all = [], []
 
@@ -362,42 +380,141 @@ def _train_traditional(
 
         progress.message = f"Training {mt} for {target_name} ({target_i+1}/{len(req.target_cols)})..."
 
-        # Build model — only the 3 valid traditional models from Specific_Models_Final
-        from sklearn.tree import DecisionTreeRegressor
-        from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+        # ── Decision Tree (matches Decision_Tree.ipynb) ─────────────────────
         if mt == "decision_tree":
-            model = DecisionTreeRegressor(max_depth=10, random_state=42)
+            from sklearn.tree import DecisionTreeRegressor
+            # Step 1: RandomizedSearchCV (same as notebook)
+            param_dist = {
+                'max_depth': [3, 5, 7, 10, 15, 20, None],
+                'min_samples_split': [2, 3, 5, 7, 10],
+                'min_samples_leaf': [1, 2, 3, 5],
+                'max_features': ['sqrt', 'log2', None],
+            }
+            progress.message = f"RandomizedSearchCV for Decision Tree ({target_name})..."
+            rscv = RandomizedSearchCV(
+                DecisionTreeRegressor(random_state=42), param_dist,
+                n_iter=50, cv=5, scoring='r2', n_jobs=-1,
+                random_state=42, verbose=0
+            )
+            rscv.fit(X_train, y_tr)
+            bp = rscv.best_params_
+
+            # Step 2: Narrow GridSearchCV around best params (same as notebook)
+            def _narrow_grid(best):
+                d = best.get('max_depth', 10)
+                s = best.get('min_samples_split', 5)
+                l = best.get('min_samples_leaf', 2)
+                return {
+                    'max_depth': sorted(set([max(1, d - 2), d, d + 2 if d else 20, None])),
+                    'min_samples_split': sorted(set([max(2, s - 1), s, s + 1])),
+                    'min_samples_leaf': sorted(set([max(1, l - 1), l, l + 1])),
+                    'max_features': [best.get('max_features', None)],
+                }
+
+            progress.message = f"GridSearchCV refinement for Decision Tree ({target_name})..."
+            gs = GridSearchCV(
+                DecisionTreeRegressor(random_state=42),
+                _narrow_grid(bp), cv=5, scoring='r2', n_jobs=-1
+            )
+            gs.fit(X_train, y_tr)
+            model = gs.best_estimator_
+            result.best_params = {**result.best_params, f"{target_name}_best": gs.best_params_}
+
+        # ── Random Forest (matches Random_Forest.ipynb) ─────────────────────
         elif mt == "random_forest":
-            model = RandomForestRegressor(n_estimators=200, max_depth=15, random_state=42, n_jobs=-1)
+            from sklearn.ensemble import RandomForestRegressor
+            param_grid = {
+                'n_estimators': [100, 200],
+                'max_depth': [10, 20, None],
+                'min_samples_split': [2, 5],
+            }
+            progress.message = f"GridSearchCV for Random Forest ({target_name})..."
+            gs = GridSearchCV(
+                RandomForestRegressor(random_state=42, n_jobs=-1),
+                param_grid, cv=5, scoring='r2', n_jobs=-1
+            )
+            gs.fit(X_train, y_tr)
+            model = gs.best_estimator_
+            result.best_params = {**result.best_params, f"{target_name}_best": gs.best_params_}
+
+        # ── Ensemble Methods (matches Ensemble_Methods.ipynb) ───────────────
         elif mt == "ensemble_methods":
-            model = GradientBoostingRegressor(n_estimators=100, max_depth=5, random_state=42)
+            from sklearn.ensemble import (
+                ExtraTreesRegressor, GradientBoostingRegressor
+            )
+            try:
+                import xgboost as xgb
+                has_xgb = True
+            except ImportError:
+                has_xgb = False
+
+            # Train all 3 ensemble models exactly as in notebook
+            candidates = {
+                'ExtraTrees': ExtraTreesRegressor(
+                    n_estimators=200, random_state=42, n_jobs=-1
+                ),
+                'GradBoosting': GradientBoostingRegressor(
+                    n_estimators=200, max_depth=4, random_state=42
+                ),
+            }
+            if has_xgb:
+                candidates['XGBoost'] = xgb.XGBRegressor(
+                    n_estimators=200, max_depth=4, learning_rate=0.05,
+                    random_state=42, verbosity=0, n_jobs=-1
+                )
+
+            best_score = -999
+            best_name = None
+            model = None
+            progress.message = f"Comparing ensemble methods for {target_name}..."
+
+            for name, cand in candidates.items():
+                cand.fit(X_train, y_tr)
+                score = r2_score(y_te, cand.predict(X_test))
+                if score > best_score:
+                    best_score = score
+                    best_name = name
+                    model = cand
+
+            # XGBoost GridSearchCV tuning (matching notebook)
+            if has_xgb:
+                progress.message = f"XGBoost GridSearchCV for {target_name}..."
+                xgb_param = {
+                    'n_estimators': [200, 400],
+                    'max_depth': [3, 5],
+                    'learning_rate': [0.05, 0.1],
+                }
+                gs = GridSearchCV(
+                    xgb.XGBRegressor(random_state=42, verbosity=0),
+                    xgb_param, cv=5, scoring='r2', n_jobs=-1
+                )
+                gs.fit(X_train, y_tr)
+                xgb_tuned_score = r2_score(y_te, gs.best_estimator_.predict(X_test))
+                if xgb_tuned_score > best_score:
+                    best_score = xgb_tuned_score
+                    best_name = 'XGBoost_tuned'
+                    model = gs.best_estimator_
+
+            result.best_params = {
+                **result.best_params,
+                f"{target_name}_best_ensemble": best_name,
+                f"{target_name}_best_r2": round(best_score, 4),
+            }
+
         else:
             from sklearn.ensemble import RandomForestRegressor
-            model = RandomForestRegressor(n_estimators=100, random_state=42)
-
-        # HP tuning
-        if req.hp_tuning.method != HPTuningMethod.NONE:
-            progress.message = f"HP tuning {mt} for {target_name}..."
-            grid = req.hp_tuning.param_grid or DEFAULT_HP_GRIDS.get(mt, {})
-            if grid:
-                model, hp_results = _run_hp_tuning(model, X_train, y_tr, grid, req)
-                result.best_params = {**result.best_params, **{f"{target_name}_{k}": v for k, v in (model.get_params() if hasattr(model, 'get_params') else {}).items()}}
-                result.hp_search_results = hp_results
-            else:
-                model.fit(X_train, y_tr)
-        else:
+            model = RandomForestRegressor(n_estimators=200, random_state=42, n_jobs=-1)
             model.fit(X_train, y_tr)
 
-        # CV
-        if req.cv != CVMethod.NONE:
-            n_folds = _cv_folds(req.cv)
-            cv_scores = cross_val_score(model, X_train, y_tr, cv=n_folds, scoring="r2")
-            if target_i == 0:
-                result.cv_r2_r1_mean = float(cv_scores.mean())
-                result.cv_r2_r1_std = float(cv_scores.std())
-            else:
-                result.cv_r2_r2_mean = float(cv_scores.mean())
-                result.cv_r2_r2_std = float(cv_scores.std())
+        # ── KFold(10) CV (all 3 notebooks use KFold(n_splits=10, shuffle=True, random_state=42)) ──
+        kf = KFold(n_splits=10, shuffle=True, random_state=42)
+        cv_scores = cross_val_score(model, X_train, y_tr, cv=kf, scoring='r2')
+        if target_i == 0:
+            result.cv_r2_r1_mean = float(cv_scores.mean())
+            result.cv_r2_r1_std = float(cv_scores.std())
+        else:
+            result.cv_r2_r2_mean = float(cv_scores.mean())
+            result.cv_r2_r2_std = float(cv_scores.std())
 
         # Predict
         y_pred = model.predict(X_test)
@@ -418,11 +535,11 @@ def _train_traditional(
             result.rmse_r2 = float(np.sqrt(result.mse_r2))
 
         # Feature importance
-        if hasattr(model, "feature_importances_"):
+        if hasattr(model, 'feature_importances_'):
             imp = model.feature_importances_
             top_k = min(20, len(imp))
             top_idx = np.argsort(imp)[-top_k:][::-1]
-            result.feature_importance = {f"feat_{i}": float(imp[i]) for i in top_idx}
+            result.feature_importance = {f'feat_{i}': float(imp[i]) for i in top_idx}
 
     result.y_true_r1 = y_true_r1_all
     result.y_pred_r1 = y_pred_r1_all
@@ -498,8 +615,12 @@ def _train_smiles_lstm(mt: str, fp_data, Y_tr, Y_te, req, progress, job_id: str 
     device = BENCHMARK_DEVICE
 
     # Build model matching the notebook architecture
+    # IPYNB: emb_dim=64, hidden=128, nlayers=2, dropout=0.3, bidirectional=True
     model = BiLSTMRegressorSMILES().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=req.learning_rate)
+    # IPYNB default: Adam(lr=3e-4, weight_decay=1e-5)
+    lr = req.learning_rate if req.learning_rate != 1e-3 else 3e-4  # Use IPYNB default
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
     criterion = torch.nn.MSELoss()
 
     # Y_tr, Y_te as tensors (2-column: r1, r2)
@@ -608,7 +729,13 @@ def _train_graph_model(mt: str, fp_data, Y_tr, Y_te, req, progress, job_id: str 
         result.best_params = {"error": f"Unknown graph model type: {mt}"}
         return result
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=req.learning_rate)
+    # IPYNB default: Adam(lr=1e-3, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    # Siamese models use StepLR(step_size=10, gamma=0.5); LSTM hybrids use ReduceLROnPlateau
+    if mt in ("siamese_regression", "siamese_bayesian"):
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+    else:
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
     criterion = torch.nn.MSELoss()
 
     # We need graph data. Convert SMILES strings to PyG graphs
@@ -716,7 +843,8 @@ def _train_vae_model(fp_data, req, progress, job_id: str | None = None) -> Model
     device = BENCHMARK_DEVICE
 
     model = VAERegressor().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=req.learning_rate)
+    # IPYNB default: Adam(lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     graphs_tr = (fp_data.get("graphs_a_train", []) + fp_data.get("graphs_b_train", [])) if fp_data else []
     if not graphs_tr:

@@ -13,7 +13,7 @@ export default function Navbar() {
       {/* Mobile logo */}
       <div className="flex items-center gap-2 md:hidden">
         <FlaskConical className="h-5 w-5 text-primary-400" />
-        <span className="font-bold text-white">PolyPred</span>
+        <span className="font-bold text-white">CopolPred</span>
       </div>
 
       {/* Breadcrumb placeholder */}
@@ -21,9 +21,6 @@ export default function Navbar() {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <span className="rounded-full bg-accent-500/10 px-3 py-1 text-xs font-medium text-accent-400">
-          v1.0
-        </span>
         <a
           href="https://github.com"
           target="_blank"

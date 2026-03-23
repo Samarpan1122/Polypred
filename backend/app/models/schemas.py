@@ -10,12 +10,14 @@ from typing import Any
 #  Enums
 # ──────────────────────────────────────────────────────────
 class FeaturizationMethod(str, Enum):
-    MORGAN_FP = "morgan_fp"
-    RDKIT_DESCRIPTORS = "rdkit_descriptors"
-    GRAPH_FEATURES = "graph_features"
-    FLAT_GRAPH = "flat_graph"
-    AUTOCORR_3D = "autocorr_3d"
-    COMBINED_2D_3D = "combined_2d_3d"
+    STERIC_INDEX = "steric_index"
+    ELECTRONIC_PROPERTIES = "electronic_properties"
+    RESONANCE_STABILIZATION = "resonance_stabilization"
+    VINYL_SUBSTITUTION = "vinyl_substitution"
+    HYBRIDIZATION_INDEX = "hybridization_index"
+    POLARITY = "polarity"
+    AROMATICITY = "aromaticity"
+    H_BONDING_CAPACITY = "h_bonding_capacity"
     ALL = "all"
 
 
@@ -97,14 +99,14 @@ class FeaturizeRequest(BaseModel):
     dataset_id: str
     smiles_col_a: str
     smiles_col_b: str
-    method: FeaturizationMethod = FeaturizationMethod.MORGAN_FP
+    method: list[FeaturizationMethod] = Field(default_factory=lambda: [FeaturizationMethod.STERIC_INDEX])
     reduction: FeatureReductionMethod = FeatureReductionMethod.NONE
-    reduction_params: dict[str, Any] = Field(default_factory=dict)
+    reduction_params: dict[str, Any] | None = None
 
 
 class FeaturizeResponse(BaseModel):
     feature_set_id: str
-    method: str
+    method: list[str] | str
     reduction: str
     n_features: int
     n_samples: int
@@ -119,14 +121,28 @@ class HPConfig(BaseModel):
     cv_folds: int = Field(5, ge=2, le=20)
 
 
-class TrainRequest(BaseModel):
+class TrainSplit(BaseModel):
+    test_size: float = 0.2
+    val_size: float = 0.1
+    random_seed: int = 42
+
+
+class TrainHPTuning(BaseModel):
+    method: HPTuningMethod = HPTuningMethod.NONE
+    n_iter: int = 10
+    cv_folds: int = 5
+
+
+class TrainModelsRequest(BaseModel):
     dataset_id: str
-    feature_set_id: str | None = None
-    featurization: FeaturizationMethod = FeaturizationMethod.FLAT_GRAPH
-    smiles_col_a: str = "smiles_a"
-    smiles_col_b: str = "smiles_b"
     target_cols: list[str] = Field(default_factory=lambda: ["r1", "r2"])
+    smiles_col_a: str = "SMILES_A"
+    smiles_col_b: str = "SMILES_B"
     models: list[ModelType]
+
+    # Featurization
+    feature_set_id: str | None = None  # If provided, bypass featurization
+    featurization: list[FeaturizationMethod] = Field(default_factory=lambda: [FeaturizationMethod.STERIC_INDEX])
     split: SplitConfig = Field(default_factory=SplitConfig)
     cv: CVMethod = CVMethod.NONE
     hp_tuning: HPConfig = Field(default_factory=HPConfig)

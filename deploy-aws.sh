@@ -379,7 +379,7 @@ echo "━━━ [10/11] Building & Deploying Frontend ━━━"
 
 cd "${SCRIPT_DIR}/frontend"
 echo "  Building Next.js with API_URL=${BACKEND_URL} ..."
-NEXT_PUBLIC_API_URL="${BACKEND_URL}" npm run build
+NEXT_PUBLIC_API_URL="" npm run build >/dev/null 2>&1 || NEXT_PUBLIC_API_URL="" npm run build
 echo "  ✓ Frontend built (static export)"
 
 aws s3 sync out/ "s3://${S3_FRONTEND}/" --delete --region "${REGION}" > /dev/null
@@ -433,8 +433,11 @@ if [ "${CF_DIST_ID}" = "None" ] || [ -z "${CF_DIST_ID}" ] || [ "${CF_DIST_ID}" =
   "DefaultCacheBehavior": {
     "TargetOriginId": "S3-${S3_FRONTEND}",
     "ViewerProtocolPolicy": "redirect-to-https",
-    "AllowedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] },
-    "CachedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] },
+    "AllowedMethods": {
+      "Quantity": 2,
+      "Items": ["GET", "HEAD"],
+      "CachedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] }
+    },
     "ForwardedValues": { "QueryString": false, "Cookies": { "Forward": "none" } },
     "MinTTL": 0, "DefaultTTL": 86400, "MaxTTL": 31536000,
     "Compress": true
