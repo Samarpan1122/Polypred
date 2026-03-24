@@ -31,8 +31,12 @@ class Settings:
         "http://localhost:3000,https://polypred.vercel.app,*"
     ).split(",")
 
-    # Device
-    DEVICE: str = os.getenv("DEVICE", "cpu")  # "cpu" or "cuda"
+    _device = os.getenv("DEVICE", "cpu")
+    if _device == "cuda":
+        import torch
+        if not torch.cuda.is_available():
+            _device = "cpu"
+    DEVICE: str = _device
 
     # Morgan fingerprint defaults
     FP_RADIUS: int = 2
@@ -43,6 +47,16 @@ class Settings:
     EDGE_FEATURE_DIM: int = 13
     GLOBAL_FEATURE_DIM: int = 7
     LATENT_DIM: int = 64
+
+    # Auth & Security
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "super-secret-key-change-me")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    
+    # Database
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost/polypred")
+    
+    # Encryption (AWS KMS)
+    KMS_KEY_ID: str = os.getenv("KMS_KEY_ID", "alias/polypred-key")
 
     # All available model types
     MODEL_TYPES: list = [

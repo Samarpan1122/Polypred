@@ -20,7 +20,7 @@ provider "aws" {
 }
 
 # ──────────────────────────────────────────────────────────
-#  S3 — Model Weights Storage
+#  S3 - Model Weights Storage
 # ──────────────────────────────────────────────────────────
 resource "aws_s3_bucket" "models" {
   bucket = "${var.project_name}-models-${var.environment}"
@@ -47,7 +47,7 @@ resource "aws_s3_bucket_public_access_block" "models" {
 }
 
 # ──────────────────────────────────────────────────────────
-#  ECR — Container Registry
+#  ECR - Container Registry
 # ──────────────────────────────────────────────────────────
 resource "aws_ecr_repository" "backend" {
   name                 = "${var.project_name}-backend"
@@ -72,7 +72,7 @@ resource "aws_ecr_lifecycle_policy" "backend" {
 }
 
 # ──────────────────────────────────────────────────────────
-#  VPC (simple — public subnets only for Fargate)
+#  VPC (simple - public subnets only for Fargate)
 # ──────────────────────────────────────────────────────────
 data "aws_availability_zones" "available" { state = "available" }
 
@@ -131,7 +131,7 @@ resource "aws_security_group" "backend" {
 }
 
 # ──────────────────────────────────────────────────────────
-#  IAM — ECS Task Role
+#  IAM - ECS Task Role
 # ──────────────────────────────────────────────────────────
 resource "aws_iam_role" "ecs_task_execution" {
   name = "${var.project_name}-ecs-exec-role"

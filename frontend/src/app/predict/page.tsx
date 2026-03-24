@@ -12,18 +12,18 @@ import { cn } from "@/lib/utils";
 
 export default function PredictPage() {
   const [mode, setMode] = useState<"single" | "batch">("single");
-  
+
   // Single mode state
   const [smilesA, setSmilesA] = useState("");
   const [smilesB, setSmilesB] = useState("");
   const [validA, setValidA] = useState<boolean | null>(null);
   const [validB, setValidB] = useState<boolean | null>(null);
   const [results, setResults] = useState<PredictResponse[]>([]);
-  
+
   // Batch mode state
   const [batchFile, setBatchFile] = useState<File | null>(null);
-  const [batchRows, setBatchRows] = useState<{a: string, b: string}[]>([]);
-  const [batchResults, setBatchResults] = useState<{a: string, b: string, res: PredictResponse[]}[]>([]);
+  const [batchRows, setBatchRows] = useState<{ a: string, b: string }[]>([]);
+  const [batchResults, setBatchResults] = useState<{ a: string, b: string, res: PredictResponse[] }[]>([]);
 
   // Common state
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -62,7 +62,7 @@ export default function PredictPage() {
         );
       })
       .catch(() => {
-        // API not available — show placeholder models
+        // API not available - show placeholder models
         const placeholders: ModelInfo[] = [
           {
             name: "siamese_lstm",
@@ -174,10 +174,10 @@ export default function PredictPage() {
       }
       const parsed = [];
       for (let i = 1; i < lines.length; i++) {
-         const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-         if (cols.length > Math.max(idxA, idxB)) {
-             parsed.push({ a: cols[idxA], b: cols[idxB] });
-         }
+        const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+        if (cols.length > Math.max(idxA, idxB)) {
+          parsed.push({ a: cols[idxA], b: cols[idxB] });
+        }
       }
       setBatchRows(parsed);
       setError(null);
@@ -297,9 +297,9 @@ export default function PredictPage() {
       </div>
 
       {loading && mode === "batch" && (
-         <div className="glass-card flex items-center justify-center py-8">
-            <p className="text-sm font-medium text-primary-400 animate-pulse">Running {batchRows.length * selected.length} predictions...</p>
-         </div>
+        <div className="glass-card flex items-center justify-center py-8">
+          <p className="text-sm font-medium text-primary-400 animate-pulse">Running {batchRows.length * selected.length} predictions...</p>
+        </div>
       )}
 
       {/* Results */}
@@ -330,10 +330,10 @@ export default function PredictPage() {
                       <td className="py-2 text-[var(--text-muted)] truncate max-w-[150px]" title={row.b}>{row.b}</td>
                       <td className="py-2 text-white">{r.model.replace(/_/g, " ")}</td>
                       <td className="py-2 text-right font-medium text-primary-400">
-                        {r.error ? <span className="text-red-400 text-xs">Error</span> : r.r1?.toFixed(4) ?? "—"}
+                        {r.error ? <span className="text-red-400 text-xs">Error</span> : r.r1?.toFixed(4) ?? "-"}
                       </td>
                       <td className="py-2 text-right font-medium text-accent-400">
-                        {r.error ? "-" : r.r2?.toFixed(4) ?? "—"}
+                        {r.error ? "-" : r.r2?.toFixed(4) ?? "-"}
                       </td>
                     </tr>
                   ))

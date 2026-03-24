@@ -1,8 +1,8 @@
-"""Siamese-network predictors — from siamese / siamese2 / siamese_somu_1 notebooks.
+"""Siamese-network predictors - from siamese / siamese2 / siamese_somu_1 notebooks.
 
 Two main variants:
-  • MIMO — single model outputs both (r₁, r₂)
-  • MISO — two independent models each predicting one ratio
+  • MIMO - single model outputs both (r₁, r₂)
+  • MISO - two independent models each predicting one ratio
 Both accept autoencoder latent vectors as input.
 
 Also includes DirectFingerprintRegressor (baseline MLP) that operates on

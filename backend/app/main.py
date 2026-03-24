@@ -1,4 +1,4 @@
-"""PolyPred — FastAPI backend entry point."""
+"""PolyPred - FastAPI backend entry point."""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,11 +24,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers — original
+# Routers - original
 app.include_router(predict.router)
 app.include_router(models.router)
 app.include_router(compare.router)
-# Routers — new platform
+# Routers - new platform
 app.include_router(dataset.router)
 app.include_router(features.router)
 app.include_router(training.router)

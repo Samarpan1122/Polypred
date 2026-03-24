@@ -1,4 +1,4 @@
-"""Variational Autoencoder — from VAE_siamese.ipynb.
+"""Variational Autoencoder - from VAE_siamese.ipynb.
 
 Same encoder/decoder shell as MolecularAutoencoder but with
 reparameterisation trick and KL-divergence loss.

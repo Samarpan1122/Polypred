@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ══════════════════════════════════════════════════════════════
-#  PolyPred — Tear Down AWS Resources
+#  PolyPred - Tear Down AWS Resources
 #  Usage: ./teardown-aws.sh [--region us-east-1] [--confirm]
 # ══════════════════════════════════════════════════════════════
 set -euo pipefail
@@ -30,6 +30,12 @@ SG_NAME="${PROJECT}-sg"
 LOG_GROUP="/ecs/${PROJECT}"
 TASK_ROLE="${PROJECT}-task-role"
 EXEC_ROLE="${PROJECT}-exec-role"
+ASG_NAME="${PROJECT}-gpu-asg"
+LAUNCH_TEMPLATE="${PROJECT}-gpu-lt"
+CAP_PROVIDER="${PROJECT}-gpu-cap"
+CODEBUILD_ROLE="${PROJECT}-codebuild-role"
+CODEBUILD_PROJECT="${PROJECT}-build"
+S3_BUILD="${PROJECT}-build-${ACCOUNT_ID}"
 
 if [ "${CONFIRM}" != true ]; then
   echo "⚠️  This will DELETE all PolyPred AWS resources in ${REGION}."
@@ -54,7 +60,31 @@ done
 
 # 3. Delete ECS cluster
 echo "[3] ECS Cluster..."
+# Remove capacity providers before deleting cluster
+aws ecs put-cluster-capacity-providers --cluster "${CLUSTER}" \
+  --capacity-providers "" --default-capacity-provider-strategy "" \
+  --region "${REGION}" 2>/dev/null || true
 aws ecs delete-cluster --cluster "${CLUSTER}" --region "${REGION}" 2>/dev/null || true
+
+# 3b. GPU Capacity Provider + ASG + Launch Template
+echo "[3b] GPU Resources..."
+# Delete capacity provider (can't be deleted directly, just deregister)
+aws ecs delete-capacity-provider --capacity-provider "${CAP_PROVIDER}" --region "${REGION}" 2>/dev/null || true
+
+# Delete ASG
+aws autoscaling update-auto-scaling-group --auto-scaling-group-name "${ASG_NAME}" \
+  --min-size 0 --max-size 0 --desired-capacity 0 --region "${REGION}" 2>/dev/null || true
+sleep 5
+aws autoscaling delete-auto-scaling-group --auto-scaling-group-name "${ASG_NAME}" \
+  --force-delete --region "${REGION}" 2>/dev/null || true
+
+# Delete Launch Template
+aws ec2 delete-launch-template --launch-template-name "${LAUNCH_TEMPLATE}" --region "${REGION}" 2>/dev/null || true
+
+# Delete CodeBuild
+aws codebuild delete-project --name "${CODEBUILD_PROJECT}" --region "${REGION}" 2>/dev/null || true
+aws iam delete-role-policy --role-name "${CODEBUILD_ROLE}" --policy-name "${PROJECT}-codebuild" 2>/dev/null || true
+aws iam delete-role --role-name "${CODEBUILD_ROLE}" 2>/dev/null || true
 
 # 4. Delete ALB + Target Group + Listener
 echo "[4] Load Balancer..."
@@ -85,7 +115,7 @@ fi
 
 # 6. Empty & delete S3 buckets
 echo "[6] S3 Buckets..."
-for BUCKET in "${S3_MODELS}" "${S3_FRONTEND}"; do
+for BUCKET in "${S3_MODELS}" "${S3_FRONTEND}" "${S3_BUILD}"; do
   aws s3 rm "s3://${BUCKET}" --recursive --region "${REGION}" 2>/dev/null || true
   aws s3api delete-bucket --bucket "${BUCKET}" --region "${REGION}" 2>/dev/null || true
 done

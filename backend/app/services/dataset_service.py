@@ -1,4 +1,4 @@
-"""Dataset service — upload, store, preview, split CSV datasets."""
+"""Dataset service - upload, store, preview, split CSV datasets."""
 
 from __future__ import annotations
 
@@ -126,13 +126,14 @@ def get_dataset_stats(dataset_id: str) -> dict:
     df = load_dataframe(dataset_id)
     stats = {}
     for col in df.select_dtypes(include=[np.number]).columns:
+        col_series = df[col]
         stats[col] = {
-            "mean": round(float(df[col].mean()), 4),
-            "std": round(float(df[col].std()), 4),
-            "min": round(float(df[col].min()), 4),
-            "max": round(float(df[col].max()), 4),
-            "median": round(float(df[col].median()), 4),
-            "missing": int(df[col].isna().sum()),
+            "mean": round(float(col_series.mean()), 4) if not pd.isna(col_series.mean()) else None,
+            "std": round(float(col_series.std()), 4) if not pd.isna(col_series.std()) else None,
+            "min": round(float(col_series.min()), 4) if not pd.isna(col_series.min()) else None,
+            "max": round(float(col_series.max()), 4) if not pd.isna(col_series.max()) else None,
+            "median": round(float(col_series.median()), 4) if not pd.isna(col_series.median()) else None,
+            "missing": int(col_series.isna().sum()),
         }
     return stats
 

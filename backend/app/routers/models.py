@@ -1,4 +1,4 @@
-"""Models info router — /api/models endpoints."""
+"""Models info router - /api/models endpoints."""
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -19,19 +19,19 @@ class ModelInfo(BaseModel):
 
 MODEL_DESCRIPTIONS = {
     # ── Siamese / Graph-based ──────────────────────────────────────────────
-    "siamese_lstm": "Siamese GAT + BiLSTM — main PolyPredict model with 4-layer GAT and bidirectional LSTM fusion",
-    "siamese_regression": "Siamese Regression — shared 2-layer GAT arms with direct prediction head",
-    "siamese_bayesian": "Siamese + Bayesian — Siamese GNN with Bayesian-tuned hyperparameters",
-    "lstm_siamese_bayesian": "LSTM + Siamese + Bayesian — hybrid graph-LSTM model combining GAT with BiLSTM",
+    "siamese_lstm": "Siamese GAT + BiLSTM - main PolyPredict model with 4-layer GAT and bidirectional LSTM fusion",
+    "siamese_regression": "Siamese Regression - shared 2-layer GAT arms with direct prediction head",
+    "siamese_bayesian": "Siamese + Bayesian - Siamese GNN with Bayesian-tuned hyperparameters",
+    "lstm_siamese_bayesian": "LSTM + Siamese + Bayesian - hybrid graph-LSTM model combining GAT with BiLSTM",
     # ── LSTM-based ────────────────────────────────────────────────────────
-    "lstm_bayesian": "LSTM + Bayesian — character-level SMILES BiLSTM with Bayesian-optimized architecture",
-    "standalone_lstm": "Standalone LSTM — bidirectional LSTM on SMILES character sequences",
+    "lstm_bayesian": "LSTM + Bayesian - character-level SMILES BiLSTM with Bayesian-optimized architecture",
+    "standalone_lstm": "Standalone LSTM - bidirectional LSTM on SMILES character sequences",
     # ── Traditional ML ────────────────────────────────────────────────────
-    "decision_tree": "Decision Tree Regressor (max_depth=10) — interpretable tree-based model",
-    "random_forest": "Random Forest (200 trees, max_depth=15) — ensemble of decision trees",
-    "ensemble_methods": "Ensemble Methods — best sklearn ensemble from comparative benchmark (GradientBoosting)",
+    "decision_tree": "Decision Tree Regressor (max_depth=10) - interpretable tree-based model",
+    "random_forest": "Random Forest (200 trees, max_depth=15) - ensemble of decision trees",
+    "ensemble_methods": "Ensemble Methods - best sklearn ensemble from comparative benchmark (GradientBoosting)",
     # ── Autoencoder ───────────────────────────────────────────────────────
-    "autoencoder": "VAE Regressor — Graph VAE with GCN encoder and regression head for r₁/r₂ prediction",
+    "autoencoder": "VAE Regressor - Graph VAE with GCN encoder and regression head for r₁/r₂ prediction",
 }
 
 INPUT_TYPES = {

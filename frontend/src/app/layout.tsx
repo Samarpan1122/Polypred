@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 
 export const metadata: Metadata = {
-  title: "CopolPred — Copolymerisation Reactivity Ratio Prediction",
+  title: "CopolPred - Copolymerisation Reactivity Ratio Prediction",
   description:
     "Plug-and-play ML platform for predicting r₁ and r₂ reactivity ratios from monomer SMILES pairs. 22+ models including Siamese, VAE, LSTM, GAT, Random Forest, XGBoost and more.",
 };
@@ -26,7 +26,7 @@ export default function RootLayout({
                 {children}
               </div>
               <footer className="mt-12 border-t border-[var(--border)] pt-8 pb-12 text-center text-sm font-medium tracking-wide text-[var(--text-muted)] w-full">
-                created and managed by samarpan mohanty
+                created and managed by S. Mohanty
               </footer>
             </main>
           </div>

@@ -1,4 +1,4 @@
-"""Graph Attention Network — from GNNReactivityRatioPrediction notebook.
+"""Graph Attention Network - from GNNReactivityRatioPrediction notebook.
 
 Two variants: MIMO (→ 2) and MISO (→ 1).
 

@@ -14,12 +14,12 @@ import {
   Dumbbell,
   BarChart3,
   FlaskRound,
+  Info,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Upload Data", href: "/upload", icon: Upload },
-  { label: "Features", href: "/features", icon: Layers },
   { label: "Training", href: "/training", icon: Dumbbell },
   { label: "Results", href: "/results", icon: BarChart3 },
   { label: "Predict", href: "/predict", icon: Beaker },
@@ -46,7 +46,7 @@ export default function Sidebar() {
         <p className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
           Experiment
         </p>
-        {NAV_ITEMS.slice(0, 5).map((item) => {
+        {NAV_ITEMS.slice(0, 4).map((item) => {
           const active = pathname === item.href;
           return (
             <Link
@@ -67,7 +67,7 @@ export default function Sidebar() {
         <p className="px-3 pb-1 pt-4 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
           Inference
         </p>
-        {NAV_ITEMS.slice(5).map((item) => {
+        {NAV_ITEMS.slice(4).map((item) => {
           const active = pathname === item.href;
           return (
             <Link
@@ -88,10 +88,19 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-[var(--border)] px-6 py-4">
-        <p className="text-xs text-[var(--text-muted)]">
-          10 ML Models&nbsp;·&nbsp;Full Pipeline
-        </p>
+      <div className="mt-auto border-t border-[var(--border)] p-4">
+        <Link
+          href="/about"
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            pathname === "/about"
+              ? "bg-primary-600/20 text-primary-400"
+              : "text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-white"
+          )}
+        >
+          <Info className="h-4 w-4" />
+          About Us
+        </Link>
       </div>
     </aside>
   );

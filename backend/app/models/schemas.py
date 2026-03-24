@@ -10,6 +10,7 @@ from typing import Any
 #  Enums
 # ──────────────────────────────────────────────────────────
 class FeaturizationMethod(str, Enum):
+    # High-level "Big 8" chemical properties
     STERIC_INDEX = "steric_index"
     ELECTRONIC_PROPERTIES = "electronic_properties"
     RESONANCE_STABILIZATION = "resonance_stabilization"
@@ -18,6 +19,15 @@ class FeaturizationMethod(str, Enum):
     POLARITY = "polarity"
     AROMATICITY = "aromaticity"
     H_BONDING_CAPACITY = "h_bonding_capacity"
+    
+    # Technical featurization methods
+    MORGAN_FP = "morgan_fp"
+    RDKIT_DESCRIPTORS = "rdkit_descriptors"
+    GRAPH_FEATURES = "graph_features"
+    FLAT_GRAPH = "flat_graph"
+    AUTOCORR_3D = "autocorr_3d"
+    COMBINED_2D_3D = "combined_2d_3d"
+    
     ALL = "all"
 
 
@@ -99,7 +109,7 @@ class FeaturizeRequest(BaseModel):
     dataset_id: str
     smiles_col_a: str
     smiles_col_b: str
-    method: list[FeaturizationMethod] = Field(default_factory=lambda: [FeaturizationMethod.STERIC_INDEX])
+    method: list[FeaturizationMethod] = Field(default_factory=lambda: [FeaturizationMethod.ALL])
     reduction: FeatureReductionMethod = FeatureReductionMethod.NONE
     reduction_params: dict[str, Any] | None = None
 
@@ -133,7 +143,7 @@ class TrainHPTuning(BaseModel):
     cv_folds: int = 5
 
 
-class TrainModelsRequest(BaseModel):
+class TrainRequest(BaseModel):
     dataset_id: str
     target_cols: list[str] = Field(default_factory=lambda: ["r1", "r2"])
     smiles_col_a: str = "SMILES_A"
@@ -142,7 +152,7 @@ class TrainModelsRequest(BaseModel):
 
     # Featurization
     feature_set_id: str | None = None  # If provided, bypass featurization
-    featurization: list[FeaturizationMethod] = Field(default_factory=lambda: [FeaturizationMethod.STERIC_INDEX])
+    featurization: list[FeaturizationMethod] = Field(default_factory=lambda: [FeaturizationMethod.ALL])
     split: SplitConfig = Field(default_factory=SplitConfig)
     cv: CVMethod = CVMethod.NONE
     hp_tuning: HPConfig = Field(default_factory=HPConfig)
@@ -182,6 +192,16 @@ class ModelResult(BaseModel):
     # Log-space metrics
     r2_log_r1: float | None = None
     r2_log_r2: float | None = None
+    medae_r1: float | None = None
+    medae_r2: float | None = None
+    max_error_r1: float | None = None
+    max_error_r2: float | None = None
+    mape_r1: float | None = None
+    mape_r2: float | None = None
+    evs_r1: float | None = None
+    evs_r2: float | None = None
+    pearson_r1: float | None = None
+    pearson_r2: float | None = None
     # CV scores
     cv_r2_r1_mean: float | None = None
     cv_r2_r1_std: float | None = None
@@ -204,6 +224,8 @@ class ModelResult(BaseModel):
     y_pred_r2: list[float] = []
     # Feature importance
     feature_importance: dict[str, float] = {}
+    # Visual Analytics
+    diagnostic_plots: list[str] = []
 
 
 class TrainResponse(BaseModel):

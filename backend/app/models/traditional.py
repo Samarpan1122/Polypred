@@ -1,4 +1,4 @@
-"""Traditional ML wrappers — from sabya1 & BL_rd_kit_test notebooks.
+"""Traditional ML wrappers - from sabya1 & BL_rd_kit_test notebooks.
 
 Covers: Decision Tree, Random Forest, Gradient Boosting, XGBoost,
         Extra Trees, AdaBoost, Ridge, Lasso, ElasticNet, KNN, SVM,
@@ -65,7 +65,7 @@ class TraditionalModelWrapper:
         self.name = name
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Return shape (n, 2) — [r₁, r₂] predictions."""
+        """Return shape (n, 2) - [r₁, r₂] predictions."""
         r1 = np.asarray(self.model_r1.predict(X)).reshape(-1, 1)
         r2 = np.asarray(self.model_r2.predict(X)).reshape(-1, 1)
         return np.hstack([r1, r2])

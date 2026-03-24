@@ -1,4 +1,4 @@
-"""Compare router — /api/compare endpoints for multi-model comparison."""
+"""Compare router - /api/compare endpoints for multi-model comparison."""
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field

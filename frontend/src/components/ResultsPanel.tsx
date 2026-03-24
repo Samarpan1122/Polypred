@@ -70,13 +70,13 @@ export default function ResultsPanel({ results, loading }: Props) {
               <div className="text-right">
                 <p className="text-xs text-[var(--text-muted)]">r₁</p>
                 <p className="text-lg font-bold text-primary-400">
-                  {r.r1?.toFixed(4) ?? "—"}
+                  {r.r1?.toFixed(4) ?? "-"}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-[var(--text-muted)]">r₂</p>
                 <p className="text-lg font-bold text-accent-400">
-                  {r.r2?.toFixed(4) ?? "—"}
+                  {r.r2?.toFixed(4) ?? "-"}
                 </p>
               </div>
             </div>

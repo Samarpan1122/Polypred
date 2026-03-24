@@ -1,4 +1,4 @@
-"""S3 service — download / upload model artefacts."""
+"""S3 service - download / upload model artefacts."""
 
 import os
 from pathlib import Path
@@ -29,9 +29,34 @@ def download_file(s3_key: str, local_path: str | Path) -> Path:
     return local_path
 
 
-def upload_file(local_path: str | Path, s3_key: str) -> str:
-    _get_client().upload_file(str(local_path), settings.S3_BUCKET, s3_key)
-    return f"s3://{settings.S3_BUCKET}/{s3_key}"
+def upload_user_file(local_path: str | Path, user_id: int, filename: str) -> str:
+    """Securely upload a user file with KMS encryption and user-specific prefix."""
+    s3_key = f"users/{user_id}/uploads/{filename}"
+    _get_client().upload_file(
+        str(local_path), 
+        settings.S3_BUCKET, 
+        s3_key,
+        ExtraArgs={
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": settings.KMS_KEY_ID
+        }
+    )
+    return s3_key
+
+
+def upload_user_model(local_path: str | Path, user_id: int, model_name: str) -> str:
+    """Securely upload a trained model with KMS encryption."""
+    s3_key = f"users/{user_id}/models/{model_name}.pt"
+    _get_client().upload_file(
+        str(local_path), 
+        settings.S3_BUCKET, 
+        s3_key,
+        ExtraArgs={
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": settings.KMS_KEY_ID
+        }
+    )
+    return s3_key
 
 
 def file_exists(s3_key: str) -> bool:

@@ -1,5 +1,5 @@
 /* ──────────────────────────────────────────────────────────
-   PolyPred — shared TypeScript types
+   PolyPred - shared TypeScript types
    ────────────────────────────────────────────────────────── */
 
 // ─── Original predict types ─────────────────────────────
@@ -137,7 +137,8 @@ export type FeaturizationMethod =
   | "hybridization_index"
   | "polarity"
   | "aromaticity"
-  | "h_bonding_capacity";
+  | "h_bonding_capacity"
+  | "all";
 
 export type FeatureReductionMethod =
   | "none"
@@ -225,6 +226,16 @@ export interface ModelResult {
   mae_r2: number | null;
   rmse_r1: number | null;
   rmse_r2: number | null;
+  medae_r1?: number | null;
+  medae_r2?: number | null;
+  max_error_r1?: number | null;
+  max_error_r2?: number | null;
+  mape_r1?: number | null;
+  mape_r2?: number | null;
+  evs_r1?: number | null;
+  evs_r2?: number | null;
+  pearson_r1?: number | null;
+  pearson_r2?: number | null;
   cv_r2_r1_mean: number | null;
   cv_r2_r1_std: number | null;
   cv_r2_r2_mean: number | null;
@@ -246,6 +257,7 @@ export interface ModelResult {
     mean_test_score: number;
     mean_train_score?: number;
   }[];
+  diagnostic_plots?: string[];
 }
 
 export interface TrainResults {

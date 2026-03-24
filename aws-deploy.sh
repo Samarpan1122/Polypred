@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────
-# PolyPred — AWS CLI deployment script
+# PolyPred - AWS CLI deployment script
 # Deploys backend (ECS Fargate) + frontend (S3 + CloudFront)
 # Usage:  ./aws-deploy.sh [--region us-east-1] [--stage prod]
 # ──────────────────────────────────────────────────────────

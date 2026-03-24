@@ -118,16 +118,14 @@ export default function UploadPage() {
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         onClick={() => fileRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 transition-colors ${
-          dragOver
+        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 transition-colors ${dragOver
             ? "border-primary-400 bg-primary-600/10"
             : "border-[var(--border)] hover:border-primary-400/50 hover:bg-[var(--bg-hover)]"
-        }`}
+          }`}
       >
         <Upload
-          className={`mb-3 h-10 w-10 ${
-            dragOver ? "text-primary-400" : "text-[var(--text-muted)]"
-          }`}
+          className={`mb-3 h-10 w-10 ${dragOver ? "text-primary-400" : "text-[var(--text-muted)]"
+            }`}
         />
         <p className="text-sm font-medium text-white">
           {uploading ? "Uploading..." : "Drop CSV here or click to browse"}
@@ -162,11 +160,10 @@ export default function UploadPage() {
             {datasets.map((ds) => (
               <div
                 key={ds.id}
-                className={`glass-card cursor-pointer rounded-xl p-4 transition-all ${
-                  selectedDs === ds.id
+                className={`glass-card cursor-pointer rounded-xl p-4 transition-all ${selectedDs === ds.id
                     ? "ring-2 ring-primary-400"
                     : "hover:ring-1 hover:ring-primary-400/30"
-                }`}
+                  }`}
                 onClick={() => selectDs(ds.id)}
               >
                 <div className="flex items-start justify-between">
@@ -267,7 +264,7 @@ export default function UploadPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(stats.column_stats).map(([col, s]) => (
+                  {Object.entries(stats.column_stats || {}).map(([col, s]) => (
                     <tr
                       key={col}
                       className="border-b border-[var(--border)]/30"
@@ -276,21 +273,21 @@ export default function UploadPage() {
                         {col}
                       </td>
                       <td className="px-3 py-1.5 text-right text-[var(--text-secondary)]">
-                        {typeof s.mean === "number" ? s.mean.toFixed(4) : "—"}
+                        {typeof s.mean === "number" ? s.mean.toFixed(4) : "-"}
                       </td>
                       <td className="px-3 py-1.5 text-right text-[var(--text-secondary)]">
-                        {typeof s.std === "number" ? s.std.toFixed(4) : "—"}
+                        {typeof s.std === "number" ? s.std.toFixed(4) : "-"}
                       </td>
                       <td className="px-3 py-1.5 text-right text-[var(--text-secondary)]">
-                        {typeof s.min === "number" ? s.min.toFixed(4) : "—"}
+                        {typeof s.min === "number" ? s.min.toFixed(4) : "-"}
                       </td>
                       <td className="px-3 py-1.5 text-right text-[var(--text-secondary)]">
-                        {typeof s.max === "number" ? s.max.toFixed(4) : "—"}
+                        {typeof s.max === "number" ? s.max.toFixed(4) : "-"}
                       </td>
                       <td className="px-3 py-1.5 text-right text-[var(--text-secondary)]">
                         {typeof s.median === "number"
                           ? s.median.toFixed(4)
-                          : "—"}
+                          : "-"}
                       </td>
                       <td className="px-3 py-1.5 text-right text-[var(--text-secondary)]">
                         {s.missing}

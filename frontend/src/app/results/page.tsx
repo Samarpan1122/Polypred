@@ -56,7 +56,13 @@ function ResultsContent() {
   >([]);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<
-    "overview" | "scatter" | "loss" | "comparison" | "importance" | "hp"
+    | "overview"
+    | "scatter"
+    | "loss"
+    | "diagnostic_plots"
+    | "comparison"
+    | "importance"
+    | "hp"
   >("overview");
   const [selectedModel, setSelectedModel] = useState<string>("");
 
@@ -89,6 +95,11 @@ function ResultsContent() {
     { id: "overview" as const, label: "Scores Table", icon: Table2 },
     { id: "scatter" as const, label: "Pred vs Actual", icon: TrendingUp },
     { id: "loss" as const, label: "Loss Curves", icon: TrendingUp },
+    {
+      id: "diagnostic_plots" as const,
+      label: "Diagnostic Plots",
+      icon: BarChart3,
+    },
     { id: "comparison" as const, label: "Model Comparison", icon: BarChart3 },
     { id: "importance" as const, label: "Feature Importance", icon: BarChart3 },
     { id: "hp" as const, label: "HP Results", icon: Table2 },
@@ -114,7 +125,7 @@ function ResultsContent() {
             <option value="">Select training job</option>
             {jobs.map((j) => (
               <option key={j.job_id} value={j.job_id}>
-                Job {j.job_id} — {j.message?.slice(0, 40)}
+                Job {j.job_id} - {j.message?.slice(0, 40)}
               </option>
             ))}
           </select>
@@ -173,11 +184,10 @@ function ResultsContent() {
               <button
                 key={`${r.model_name}-${i}`}
                 onClick={() => setSelectedModel(r.model_name)}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
-                  selectedModel === r.model_name
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${selectedModel === r.model_name
                     ? "border-primary-400 bg-primary-600/10 text-primary-400"
                     : "border-[var(--border)] text-[var(--text-muted)] hover:border-primary-400/30"
-                }`}
+                  }`}
                 style={
                   selectedModel === r.model_name
                     ? { borderColor: COLORS[i % COLORS.length] }
@@ -195,11 +205,10 @@ function ResultsContent() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                  tab === t.id
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${tab === t.id
                     ? "bg-primary-600/20 text-primary-400"
                     : "text-[var(--text-muted)] hover:text-white"
-                }`}
+                  }`}
               >
                 <t.icon className="h-3.5 w-3.5" />
                 {t.label}
@@ -212,6 +221,9 @@ function ResultsContent() {
             {tab === "overview" && <ScoresTable results={results.results} />}
             {tab === "scatter" && model && <ScatterPlots model={model} />}
             {tab === "loss" && model && <LossCurves model={model} />}
+            {tab === "diagnostic_plots" && model && (
+              <DiagnosticPlots model={model} />
+            )}
             {tab === "comparison" && (
               <ModelComparison results={results.results} />
             )}
@@ -250,7 +262,7 @@ function SummaryCard({
     <div className="glass-card rounded-xl p-4">
       <p className="text-xs text-[var(--text-muted)]">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${color || "text-white"}`}>
-        {String(value ?? "—")}
+        {String(value ?? "-")}
       </p>
       {sub && <p className="mt-0.5 text-xs text-[var(--text-muted)]">{sub}</p>}
     </div>
@@ -333,12 +345,12 @@ function ScoresTable({ results }: { results: ModelResult[] }) {
               <td className="px-3 py-2 text-right text-[var(--text-muted)]">
                 {r.cv_r2_r1_mean != null
                   ? `${r.cv_r2_r1_mean.toFixed(3)}±${r.cv_r2_r1_std?.toFixed(3)}`
-                  : "—"}
+                  : "-"}
               </td>
               <td className="px-3 py-2 text-right text-[var(--text-muted)]">
                 {r.cv_r2_r2_mean != null
                   ? `${r.cv_r2_r2_mean.toFixed(3)}±${r.cv_r2_r2_std?.toFixed(3)}`
-                  : "—"}
+                  : "-"}
               </td>
               <td className="px-3 py-2 text-right text-[var(--text-muted)]">
                 {r.training_time_s?.toFixed(1)}s
@@ -374,7 +386,7 @@ function ScatterPlots({ model: m }: { model: ModelResult }) {
   return (
     <div className="space-y-6">
       <h3 className="text-sm font-semibold text-white">
-        Predicted vs Actual — {m.model_name.replace(/_/g, " ")}
+        Predicted vs Actual - {m.model_name.replace(/_/g, " ")}
       </h3>
       <div className="grid gap-6 md:grid-cols-2">
         {/* r1 scatter */}
@@ -570,7 +582,7 @@ function LossCurves({ model: m }: { model: ModelResult }) {
     <div className="space-y-6">
       <div>
         <h3 className="mb-3 text-sm font-semibold text-white">
-          Training & Validation Loss — {m.model_name.replace(/_/g, " ")}
+          Training & Validation Loss - {m.model_name.replace(/_/g, " ")}
         </h3>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={lossData}>
@@ -840,7 +852,7 @@ function FeatureImportance({ model: m }: { model: ModelResult }) {
   return (
     <div>
       <h3 className="mb-3 text-sm font-semibold text-white">
-        Top-20 Feature Importance — {m.model_name.replace(/_/g, " ")}
+        Top-20 Feature Importance - {m.model_name.replace(/_/g, " ")}
       </h3>
       <ResponsiveContainer
         width="100%"
@@ -890,7 +902,7 @@ function HPResults({ model: m }: { model: ModelResult }) {
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold text-white">
-        HP Tuning Results — {m.model_name.replace(/_/g, " ")}
+        HP Tuning Results - {m.model_name.replace(/_/g, " ")}
       </h3>
       {m.best_params && Object.keys(m.best_params).length > 0 && (
         <div className="rounded-lg bg-green-500/10 p-3">
@@ -933,7 +945,7 @@ function HPResults({ model: m }: { model: ModelResult }) {
                   {r.mean_test_score.toFixed(4)}
                 </td>
                 <td className="px-3 py-1.5 text-right text-[var(--text-muted)]">
-                  {r.mean_train_score?.toFixed(4) ?? "—"}
+                  {r.mean_train_score?.toFixed(4) ?? "-"}
                 </td>
               </tr>
             ))}
@@ -944,9 +956,44 @@ function HPResults({ model: m }: { model: ModelResult }) {
   );
 }
 
+function DiagnosticPlots({ model: m }: { model: ModelResult }) {
+  if (!m.diagnostic_plots || m.diagnostic_plots.length === 0) {
+    return (
+      <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-[var(--border)]">
+        <p className="text-sm text-[var(--text-muted)]">
+          No diagnostic plots available for this model.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <h3 className="mb-3 text-sm font-semibold text-white">
+        Comprehensive Diagnostic Suite & High-Level Chemical Importance
+      </h3>
+      <div className="grid grid-cols-1 gap-6">
+        {m.diagnostic_plots.map((plotB64, idx) => (
+          <div
+            key={idx}
+            className="flex items-center justify-center rounded-lg border border-[var(--border)] bg-white/5 p-4"
+          >
+            <img
+              src={plotB64}
+              alt={`Diagnostic Plot ${idx + 1}`}
+              className="max-h-[600px] w-auto rounded-md shadow-sm"
+              loading="lazy"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Helpers ──────────────────────────────────────────────
 function fmtMetric(v: number | null | undefined): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   return v.toFixed(4);
 }
 

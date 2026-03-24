@@ -112,7 +112,7 @@ async def available_models():
                 "id": "siamese_lstm",
                 "name": "Siamese + LSTM (PolyPredict)",
                 "description": (
-                    "Main PolyPredict model — 4-layer Siamese GAT + BiLSTM. "
+                    "Main PolyPredict model - 4-layer Siamese GAT + BiLSTM. "
                     "Architecture: SiameseGATArm with 4 GATConv layers (heads=4, dropout=0.1) + BN + residual skip, "
                     "GlobalAttention pooling (h=64, out=128); BiLSTM(input=128, hidden=lstm_h, num_layers=2) processes "
                     "graph embeddings as a 2-token sequence; FC regression head → (r₁, r₂). "

@@ -41,7 +41,7 @@ async def preview(dataset_id: str, rows: int = Query(20, ge=1, le=500)):
     return {
         "columns": df.columns.tolist(),
         "dtypes": {c: str(d) for c, d in df.dtypes.items()},
-        "rows": df.head(rows).to_dict(orient="records"),
+        "rows": df.head(rows).replace({np.nan: None}).to_dict(orient="records"),
         "shape": list(df.shape),
     }
 

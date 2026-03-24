@@ -1,4 +1,4 @@
-"""Reaction Validator router — /api/reaction endpoints."""
+"""Reaction Validator router - /api/reaction endpoints."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def is_valid_smiles(smi: str) -> tuple[bool, str | None]:
     # 1) parse without sanitization: catches pure syntax problems
     m = Chem.MolFromSmiles(smi, sanitize=False)
     if m is None:
-        return False, "Invalid SMILES syntax — could not be parsed"
+        return False, "Invalid SMILES syntax - could not be parsed"
 
     # 2) run sanitization: catches valence/aromaticity/chemistry issues
     try:

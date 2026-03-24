@@ -1,4 +1,4 @@
-"""Bidirectional LSTM Regressor — from sabya1 notebooks.
+"""Bidirectional LSTM Regressor - from sabya1 notebooks.
 
 Two variants:
   • Large : 4 layers × 512 hidden, FC 1024→256→128→64→2 (batch_size=8)

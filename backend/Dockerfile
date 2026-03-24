@@ -2,6 +2,9 @@ FROM public.ecr.aws/docker/library/python:3.11-slim
 
 WORKDIR /app
 
+# Ensure PyTorch can find NVIDIA runtime libraries injected by ECS GPU
+ENV PATH /usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64
 # System deps for RDKit + build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -10,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps — full PyTorch with GPU support
+# Install Python deps - full PyTorch with GPU support
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt

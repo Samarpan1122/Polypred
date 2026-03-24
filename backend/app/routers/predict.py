@@ -1,4 +1,4 @@
-"""Prediction router — /api/predict endpoints."""
+"""Prediction router - /api/predict endpoints."""
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field

@@ -1,4 +1,4 @@
-"""Prediction service — runs one or many models on a monomer pair."""
+"""Prediction service - runs one or many models on a monomer pair."""
 
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ MODEL_CATEGORIES = {
 
 # ── Benchmark prediction functions ────────────────────────────────────
 def _predict_benchmark_graph(model_name: str, smiles_a: str, smiles_b: str) -> dict:
-    """Benchmark Siamese graph models — separate PyG Data per monomer."""
+    """Benchmark Siamese graph models - separate PyG Data per monomer."""
     if not HAS_BENCHMARK:
         return {"error": "torch_geometric not installed"}
     model = get_model(model_name)
@@ -94,7 +94,7 @@ def _predict_benchmark_smiles(model_name: str, smiles_a: str, smiles_b: str) -> 
 
 
 def _predict_benchmark_traditional(model_name: str, smiles_a: str, smiles_b: str) -> dict:
-    """Benchmark ensemble model — uses 130-dim flat features (mean-pool + global)."""
+    """Benchmark ensemble model - uses 130-dim flat features (mean-pool + global)."""
     wrapper = get_model(model_name)
     flat = pair_flat_features_ensemble(smiles_a, smiles_b)
     if flat is None:
@@ -104,6 +104,11 @@ def _predict_benchmark_traditional(model_name: str, smiles_a: str, smiles_b: str
 
 
 _DISPATCH = {}
+
+BENCHMARK_GRAPH_MODELS = {"siamese_regression", "siamese_bayesian", "autoencoder", "siamese_lstm", "lstm_siamese_bayesian"}
+BENCHMARK_SMILES_MODELS = {"lstm_bayesian", "standalone_lstm"}
+BENCHMARK_TRADITIONAL_MODELS = {"ensemble_methods", "decision_tree", "random_forest"}
+
 for name in BENCHMARK_GRAPH_MODELS:
     _DISPATCH[name] = _predict_benchmark_graph
 for name in BENCHMARK_SMILES_MODELS:
@@ -119,7 +124,7 @@ def predict(model_name: str, smiles_a: str, smiles_b: str) -> dict:
     """Run a single model and return prediction + timing."""
     fn = _DISPATCH.get(model_name)
     if fn is None:
-        return {"error": f"Unknown model: {model_name}"}
+        return {"model": model_name, "error": f"Unknown model: {model_name}"}
     t0 = time.perf_counter()
     try:
         result = fn(model_name, smiles_a, smiles_b)

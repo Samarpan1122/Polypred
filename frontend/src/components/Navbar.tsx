@@ -21,14 +21,6 @@ export default function Navbar() {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <a
-          href="https://github.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[var(--text-muted)] hover:text-white"
-        >
-          <Github className="h-4 w-4" />
-        </a>
       </div>
     </header>
   );

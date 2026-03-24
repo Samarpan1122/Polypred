@@ -1,4 +1,4 @@
-"""Feature engineering service — featurize datasets, apply reductions."""
+"""Feature engineering service - featurize datasets, apply reductions."""
 
 from __future__ import annotations
 
@@ -59,7 +59,10 @@ def featurize_dataset(
         elif m not in real_methods:
             real_methods.append(m)
 
-    for i, row in df.iterrows():
+    total_rows = len(df)
+    for row_num, (i, row) in enumerate(df.iterrows()):
+        if row_num % 50 == 0:
+            print(f"[FEATURIZE] Processing row {row_num+1}/{total_rows} ({100*row_num/max(total_rows,1):.0f}%)", flush=True)
         sa, sb = str(row[smiles_col_a]), str(row[smiles_col_b])
         parts = []
         ok = True
@@ -73,6 +76,8 @@ def featurize_dataset(
         if ok and parts:
             features.append(np.concatenate(parts))
             valid_indices.append(i)
+
+    print(f"[FEATURIZE] Done - {len(features)} valid out of {total_rows} rows", flush=True)
 
     if not features:
         return {"error": "No valid features could be computed"}
@@ -133,7 +138,7 @@ def featurize_dataset(
 
     elif reduction == FeatureReductionMethod.SELECT_K_BEST:
         k = reduction_params.get("k", min(50, X.shape[1]))
-        # Need targets for this — use first target col
+        # Need targets for this - use first target col
         meta = json.loads((DATA_DIR / dataset_id / "meta.json").read_text())
         if meta.get("target_cols"):
             tcol = meta["target_cols"][0]
@@ -155,7 +160,7 @@ def featurize_dataset(
     meta = {
         "id": fs_id,
         "dataset_id": dataset_id,
-        "method": method.value,
+        "method": "+".join(m.value for m in real_methods),
         "reduction": reduction.value,
         "n_features": X.shape[1],
         "n_samples": X.shape[0],

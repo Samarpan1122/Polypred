@@ -1,4 +1,4 @@
-"""Benchmark model architectures — exact replicas from Specific_Models_Final notebooks.
+"""Benchmark model architectures - exact replicas from Specific_Models_Final notebooks.
 
 These classes must match the architectures used in notebooks so that saved
 state_dict weights can be loaded correctly.
@@ -149,7 +149,7 @@ class SiameseLSTMPolyPredict(nn.Module):
 #  2 & 3. Siamese_Regression / Siamese+Bayesian (GNNArm + SiameseRegressor)
 # ──────────────────────────────────────────────────────────────────────
 class GNNArm(nn.Module):
-    """Single arm of the Siamese network — shared weights (2-layer GAT)."""
+    """Single arm of the Siamese network - shared weights (2-layer GAT)."""
 
     def __init__(self, in_ch=NODE_DIM, h=64, out=128):
         super().__init__()

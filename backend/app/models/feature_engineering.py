@@ -1,4 +1,4 @@
-"""Feature engineering pipeline — extracted from sabya1/GNN notebooks.
+"""Feature engineering pipeline - extracted from sabya1/GNN notebooks.
 
 Converts SMILES strings into:
   1. Morgan fingerprints (2048-bit ECFP4)
@@ -10,6 +10,7 @@ Converts SMILES strings into:
 
 import numpy as np
 import torch
+from torch_geometric.data import Data
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors, rdMolDescriptors
 
@@ -18,9 +19,18 @@ from app.config import settings
 # ──────────────────────────────────────────────────────────────────────
 #  Element / property lookup tables (from notebooks)
 # ──────────────────────────────────────────────────────────────────────
-ELEMENTS = ["B", "C", "N", "O", "F", "Si", "P", "S", "Cl", "Br",
-            "I", "Fe", "Ni", "Zn", "Sn", "Na", "K"]
-HYBRIDIZATIONS = [
+# ──────────────────────────────────────────────────────────────────────
+#  Element / property lookup tables (Verbatim from User Snippet)
+# ──────────────────────────────────────────────────────────────────────
+
+atomSymbols = [
+    'B', 'C', 'N', 'O', 'F', 'Si', 'P', 'S', 'Cl', 'Br', 'I',  
+    'Fe', 'Ni', 'Zn', 'Sn', 'Na', 'K'   
+]
+
+atomDegree = [1, 2, 3, 4, 5]
+
+atomHybridization = [
     Chem.rdchem.HybridizationType.UNSPECIFIED,
     Chem.rdchem.HybridizationType.S,
     Chem.rdchem.HybridizationType.SP,
@@ -28,30 +38,35 @@ HYBRIDIZATIONS = [
     Chem.rdchem.HybridizationType.SP3,
     Chem.rdchem.HybridizationType.SP3D,
     Chem.rdchem.HybridizationType.SP3D2,
-    Chem.rdchem.HybridizationType.OTHER,
+    Chem.rdchem.HybridizationType.OTHER
 ]
-STEREO_TYPES = [
+
+hydrogenConnectedNumber = [0, 1, 2, 3, 4]
+
+bondType = [
+    Chem.rdchem.BondType.SINGLE,
+    Chem.rdchem.BondType.DOUBLE,
+    Chem.rdchem.BondType.TRIPLE,
+    Chem.rdchem.BondType.AROMATIC
+]
+
+stereoType = [
     Chem.rdchem.BondStereo.STEREONONE,
     Chem.rdchem.BondStereo.STEREOANY,
     Chem.rdchem.BondStereo.STEREOZ,
-    Chem.rdchem.BondStereo.STEREOE,
+    Chem.rdchem.BondStereo.STEREOE
 ]
 
-# Pauling electronegativity
-ELECTRONEGATIVITY = {
-    "H": 2.20, "B": 2.04, "C": 2.55, "N": 3.04, "O": 3.44, "F": 3.98,
-    "Si": 1.90, "P": 2.19, "S": 2.58, "Cl": 3.16, "Br": 2.96, "I": 2.66,
-    "Fe": 1.83, "Ni": 1.91, "Zn": 1.65, "Sn": 1.96, "Na": 0.93, "K": 0.82,
+electronegativities = {
+    'C': 2.55, 'N': 3.04, 'O': 3.44, 'F': 3.98, 
+    'Si': 1.90, 'P': 2.19, 'S': 2.58, 'Cl': 3.16, 
+    'Br': 2.96, 'I': 2.66, 'H': 2.20, 'B': 2.04,
+    'Fe': 1.83, 'Ni': 1.91, 'Zn': 1.65, 'Sn': 1.96, 'Na': 0.93, 'K': 0.82
 }
 
 
 def _one_hot(val, choices):
-    vec = [0.0] * len(choices)
-    try:
-        vec[choices.index(val)] = 1.0
-    except ValueError:
-        pass
-    return vec
+    return [1.0 if val == choice else 0.0 for choice in choices]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -76,155 +91,266 @@ def pair_fingerprints(smiles_a: str, smiles_b: str):
 
 
 # ──────────────────────────────────────────────────────────────────────
-#  2. Molecular Graph Features
+#  2. Molecular Graph Features (Matches User IPYNB Exactly)
 # ──────────────────────────────────────────────────────────────────────
-def _atom_features(atom, mol) -> list[float]:
-    """58-dimensional atom feature vector."""
-    symbol = atom.GetSymbol()
-    features = []
-    # One-hot element (17)
-    features += _one_hot(symbol, ELEMENTS)
-    # One-hot degree (5)
-    features += _one_hot(atom.GetDegree(), [1, 2, 3, 4, 5])
-    # Formal charge (1)
-    features.append(float(atom.GetFormalCharge()))
-    # Radical electrons (1)
-    features.append(float(atom.GetNumRadicalElectrons()))
-    # One-hot hybridization (8)
-    features += _one_hot(atom.GetHybridization(), HYBRIDIZATIONS)
-    # Aromaticity (1)
-    features.append(float(atom.GetIsAromatic()))
-    # Total Hs one-hot (5)
-    features += _one_hot(atom.GetTotalNumHs(), [0, 1, 2, 3, 4])
-    # Electronic features (4)
-    en = ELECTRONEGATIVITY.get(symbol, 2.5)
-    idx = atom.GetIdx()
-    neighbors = atom.GetNeighbors()
-    avg_neighbor_en = np.mean([ELECTRONEGATIVITY.get(n.GetSymbol(), 2.5) for n in neighbors]) if neighbors else en
-    net_electronic = en - avg_neighbor_en
-    ewg_count = sum(1 for n in neighbors if ELECTRONEGATIVITY.get(n.GetSymbol(), 2.5) > 2.8)
-    features += [en, avg_neighbor_en, net_electronic, float(ewg_count)]
-    # Steric features (4)
-    non_h = sum(1 for n in neighbors if n.GetSymbol() != "H")
-    bulky = sum(1 for n in neighbors if n.GetDegree() >= 3)
-    aromatic_n = sum(1 for n in neighbors if n.GetIsAromatic())
-    ring_info = mol.GetRingInfo()
-    ring_part = float(ring_info.NumAtomRings(idx))
-    features += [float(non_h), float(bulky), float(aromatic_n), ring_part]
-    # Vinyl features (3)
-    is_vinyl = 0.0
-    has_alpha = 0.0
-    has_ewg_on_vinyl = 0.0
-    if symbol == "C":
-        for bond in atom.GetBonds():
-            if bond.GetBondTypeAsDouble() == 2.0:
-                other = bond.GetOtherAtom(atom)
-                if other.GetSymbol() == "C":
-                    is_vinyl = 1.0
-                    for n2 in other.GetNeighbors():
-                        if n2.GetIdx() != idx:
-                            has_alpha = 1.0
-                            if ELECTRONEGATIVITY.get(n2.GetSymbol(), 2.5) > 2.8:
-                                has_ewg_on_vinyl = 1.0
-    features += [is_vinyl, has_alpha, has_ewg_on_vinyl]
-    # Resonance features (4)
-    is_aromatic = float(atom.GetIsAromatic())
-    adj_aromatic = float(any(n.GetIsAromatic() for n in neighbors))
-    is_sp2 = float(atom.GetHybridization() == Chem.rdchem.HybridizationType.SP2)
-    double_bonds = sum(1 for b in atom.GetBonds() if b.GetBondTypeAsDouble() == 2.0)
-    features += [is_aromatic, adj_aromatic, is_sp2, float(double_bonds)]
-    # Ring features (4)
-    num_rings = float(ring_info.NumAtomRings(idx))
-    atom_rings = ring_info.AtomRingSizes(idx) if hasattr(ring_info, "AtomRingSizes") else []
-    smallest = min(atom_rings) if atom_rings else 0.0
-    in_6 = float(6 in atom_rings) if atom_rings else 0.0
-    in_arom_ring = float(atom.GetIsAromatic() and num_rings > 0)
-    features += [num_rings, float(smallest), in_6, in_arom_ring]
-    # Conformational (1)
-    restricted = float(ring_part > 0 or is_sp2 > 0)
-    features.append(restricted)
-    return features  # 58 total
 
+def smileToMole(smile: str) -> Chem.Mol | None:
+    """Convert SMILES string to RDKit molecule with explicit hydrogens and 3D coordinates."""
+    if not isinstance(smile, str):
+        return None
+    try:
+        molecule = Chem.MolFromSmiles(smile)
+        if molecule is None:
+            return None
+        molecule = Chem.AddHs(molecule)
+        try:
+            status = AllChem.EmbedMolecule(molecule, randomSeed=42)
+            if status == -1:
+                status = AllChem.EmbedMolecule(molecule, randomSeed=42, useRandomCoords=True)
+            if status != -1:
+                AllChem.MMFFOptimizeMolecule(molecule)
+        except Exception:
+            pass
+        return molecule
+    except Exception:
+        return None
+
+def oneHotEncode(value, categories):
+    return [1.0 if value == category else 0.0 for category in categories]
+
+def calculateElectronicFeatures(atom: Chem.Atom) -> list:
+    atom_en = electronegativities.get(atom.GetSymbol(), 2.20)
+    neighbors = atom.GetNeighbors()
+    neighbor_en = [electronegativities.get(n.GetSymbol(), 2.20) for n in neighbors]
+    avg_neighbor_en = sum(neighbor_en) / len(neighbor_en) if neighbor_en else 0
+    ewg_count = sum(1 for n in neighbors if n.GetSymbol() in ['F', 'Cl', 'Br', 'I', 'O', 'N'])
+    return [atom_en, avg_neighbor_en, atom_en - avg_neighbor_en, float(ewg_count)]
+
+def calculateStericFeatures(atom: Chem.Atom) -> list:
+    neighbors = atom.GetNeighbors()
+    return [
+        float(len([n for n in neighbors if n.GetSymbol() != 'H'])),
+        float(sum(1 for n in neighbors if n.GetDegree() > 2)),
+        float(sum(1 for n in neighbors if n.GetIsAromatic())),
+        float(atom.IsInRing())
+    ]
+
+def find_vinyl_groups(mol):
+    if mol is None: return []
+    vinyl_groups = []
+    for bond in mol.GetBonds():
+        if (bond.GetBondType() == Chem.rdchem.BondType.DOUBLE and 
+            mol.GetAtomWithIdx(bond.GetBeginAtomIdx()).GetSymbol() == 'C' and
+            mol.GetAtomWithIdx(bond.GetEndAtomIdx()).GetSymbol() == 'C'):
+            vinyl_groups.append((bond, bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()))
+    return vinyl_groups
+
+def identify_alpha_substituents(mol, carbon_idx, other_carbon_idx):
+    substituents = []
+    atom = mol.GetAtomWithIdx(carbon_idx)
+    for neighbor in atom.GetNeighbors():
+        if neighbor.GetIdx() == other_carbon_idx or neighbor.GetSymbol() == 'H':
+            continue
+        symbol = neighbor.GetSymbol()
+        if symbol != 'C':
+            if symbol in ['Cl', 'Br', 'F', 'I']:
+                halogen_descriptions = {'Cl': "Chloro", 'Br': "Bromo", 'F': "Fluoro", 'I': "Iodo"}
+                substituents.append({'type': f"{halogen_descriptions[symbol]}", 'reactivity_score': 5})
+            elif symbol == 'O':
+                has_h = any(n2.GetSymbol() == 'H' for n2 in neighbor.GetNeighbors() if n2.GetIdx() != carbon_idx)
+                substituents.append({'type': "Hydroxy" if has_h else "Alkoxy/Ether", 'reactivity_score': 3 if has_h else 2})
+            elif symbol == 'N':
+                bond = mol.GetBondBetweenAtoms(carbon_idx, neighbor.GetIdx())
+                if bond and bond.GetBondType() == Chem.rdchem.BondType.TRIPLE:
+                    substituents.append({'type': "Cyano", 'reactivity_score': 7})
+                else:
+                    substituents.append({'type': "Amino", 'reactivity_score': 3})
+            else:
+                substituents.append({'type': f"{symbol}-group", 'reactivity_score': 1})
+        else:
+            if neighbor.GetIsAromatic():
+                substituents.append({'type': "Phenyl/Aromatic", 'reactivity_score': 10})
+                continue
+            has_carbonyl = False
+            for n2 in neighbor.GetNeighbors():
+                if n2.GetIdx() != carbon_idx and n2.GetSymbol() == 'O':
+                    bond = mol.GetBondBetweenAtoms(neighbor.GetIdx(), n2.GetIdx())
+                    if bond and bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
+                        has_carbonyl = True
+                        found_special = False
+                        for n3 in neighbor.GetNeighbors():
+                            if n3.GetIdx() != carbon_idx and n3.GetIdx() != n2.GetIdx():
+                                if n3.GetSymbol() == 'O':
+                                    substituents.append({'type': "Ester/Carboxyl", 'reactivity_score': 6})
+                                    found_special = True; break
+                                elif n3.GetSymbol() == 'N':
+                                    substituents.append({'type': "Amide", 'reactivity_score': 6})
+                                    found_special = True; break
+                        if not found_special:
+                            substituents.append({'type': "Carbonyl", 'reactivity_score': 8})
+                        break
+            if has_carbonyl: continue
+            # Cyano check on Carbon
+            has_cyano_on_c = False
+            for n2 in neighbor.GetNeighbors():
+                if n2.GetIdx() != carbon_idx and n2.GetSymbol() == 'N':
+                    bond = mol.GetBondBetweenAtoms(neighbor.GetIdx(), n2.GetIdx())
+                    if bond and bond.GetBondType() == Chem.rdchem.BondType.TRIPLE:
+                        substituents.append({'type': "Cyano", 'reactivity_score': 7})
+                        has_cyano_on_c = True; break
+            if has_cyano_on_c: continue
+            # Alkenyl
+            has_alkenyl = any(mol.GetBondBetweenAtoms(neighbor.GetIdx(), n2.GetIdx()).GetBondType() == Chem.rdchem.BondType.DOUBLE 
+                            for n2 in neighbor.GetNeighbors() if n2.GetIdx() != carbon_idx and n2.GetSymbol() == 'C')
+            if has_alkenyl:
+                substituents.append({'type': "Alkenyl", 'reactivity_score': 9})
+            else:
+                substituents.append({'type': "Alkyl", 'reactivity_score': 4})
+    
+    return {'has_alpha_substitution': len(substituents) > 0, 'substituents': substituents}
+
+def identifyVinylFeatures(atom: Chem.Atom, mol: Chem.Mol) -> list:
+    isVinyl, hasAlphaSubst, hasEWG = 0.0, 0.0, 0.0
+    v_groups = find_vinyl_groups(mol)
+    for _, b_idx, e_idx in v_groups:
+        if atom.GetIdx() in [b_idx, e_idx]:
+            isVinyl = 1.0
+            other = e_idx if atom.GetIdx() == b_idx else b_idx
+            sub_info = identify_alpha_substituents(mol, atom.GetIdx(), other)
+            hasAlphaSubst = 1.0 if sub_info['has_alpha_substitution'] else 0.0
+            hasEWG = 1.0 if any(s['reactivity_score'] >= 5 for s in sub_info['substituents']) else 0.0
+            break
+    return [isVinyl, hasAlphaSubst, hasEWG]
+
+def calculateResonanceFeatures(atom: Chem.Atom) -> list:
+    return [
+        float(atom.GetIsAromatic()),
+        float(any(n.GetIsAromatic() for n in atom.GetNeighbors())),
+        float(atom.GetHybridization() == Chem.rdchem.HybridizationType.SP2),
+        float(len([b for b in atom.GetBonds() if b.GetBondType() == Chem.rdchem.BondType.DOUBLE]))
+    ]
+
+def calculateRingFeatures(atom: Chem.Atom, mol: Chem.Mol) -> list:
+    ri = mol.GetRingInfo()
+    atom_rings = ri.AtomRings()
+    rings = [r for r in atom_rings if atom.GetIdx() in r]
+    return [
+        float(len(rings)),
+        float(min([len(r) for r in rings] or [0])),
+        float(any(len(r) == 6 for r in rings)),
+        float(atom.GetIsAromatic() and len(rings) > 0)
+    ]
+
+def is_in_restricted_conformation(atom: Chem.Atom, mol: Chem.Mol) -> float:
+    return float(atom.IsInRing() or len(atom.GetNeighbors()) > 3)
+
+def _atom_features(atom, mol) -> list[float]:
+    features = (
+        oneHotEncode(atom.GetSymbol(), atomSymbols) +
+        oneHotEncode(atom.GetDegree(), atomDegree) +
+        [float(atom.GetFormalCharge())] +
+        [float(atom.GetNumRadicalElectrons())] +
+        oneHotEncode(atom.GetHybridization(), atomHybridization) +
+        [1.0 if atom.GetIsAromatic() else 0.0] +
+        oneHotEncode(atom.GetTotalNumHs(), hydrogenConnectedNumber)
+    )
+    features += calculateElectronicFeatures(atom)
+    features += calculateStericFeatures(atom)
+    features += identifyVinylFeatures(atom, mol)
+    features += calculateResonanceFeatures(atom)
+    features += calculateRingFeatures(atom, mol)
+    features.append(is_in_restricted_conformation(atom, mol))
+    return features
 
 def _bond_features(bond, mol) -> list[float]:
-    """13-dimensional bond feature vector."""
-    features = []
-    # Bond type one-hot (4)
     bt = bond.GetBondType()
-    features += [
-        float(bt == Chem.rdchem.BondType.SINGLE),
-        float(bt == Chem.rdchem.BondType.DOUBLE),
-        float(bt == Chem.rdchem.BondType.TRIPLE),
-        float(bt == Chem.rdchem.BondType.AROMATIC),
-    ]
-    # Conjugation (1)
-    features.append(float(bond.GetIsConjugated()))
-    # Ring (1)
-    features.append(float(bond.IsInRing()))
-    # Stereo one-hot (4)
-    features += _one_hot(bond.GetStereo(), STEREO_TYPES)
-    # Ring sizes (3 through 7) — 5 flags — but we pack to fit 13 total
-    # Vinyl bond (1)
-    is_vinyl = 0.0
-    if bt == Chem.rdchem.BondType.DOUBLE:
-        a1, a2 = bond.GetBeginAtom(), bond.GetEndAtom()
-        if a1.GetSymbol() == "C" and a2.GetSymbol() == "C":
-            is_vinyl = 1.0
-    features.append(is_vinyl)
-    return features  # 13 total
-
+    features = (
+        oneHotEncode(bt, bondType) +
+        [float(bond.GetIsConjugated())] +
+        [float(bond.IsInRing())] +
+        oneHotEncode(bond.GetStereo(), stereoType) +
+        [float(bond.IsInRingSize(s)) for s in [3, 4, 5, 6, 7]] +
+        [float(bt == Chem.rdchem.BondType.DOUBLE and all(a.GetSymbol() == 'C' for a in [bond.GetBeginAtom(), bond.GetEndAtom()]))]
+    )
+    return features
 
 def _global_features(mol) -> list[float]:
-    """7-dimensional molecular-level features."""
-    ri = mol.GetRingInfo()
-    n_rot = float(Descriptors.NumRotatableBonds(mol))
-    n_ring = float(ri.NumRings())
-    n_arom = float(Descriptors.NumAromaticRings(mol))
-    # Vinyl group count
-    vinyl_count = 0
-    for bond in mol.GetBonds():
-        if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
-            a1, a2 = bond.GetBeginAtom(), bond.GetEndAtom()
-            if a1.GetSymbol() == "C" and a2.GetSymbol() == "C":
-                vinyl_count = vinyl_count + 1
-    has_vinyl = float(vinyl_count > 0)
-    frac_csp3 = float(Descriptors.FractionCSP3(mol))
-    ring_complexity = float(ri.NumRings())
-    return [n_rot, n_ring, n_arom, float(vinyl_count), has_vinyl, frac_csp3, ring_complexity]
+    v_groups = find_vinyl_groups(mol)
+    has_v = 1.0 if len(v_groups) > 0 else 0.0
+    return [
+        float(rdMolDescriptors.CalcNumRotatableBonds(mol)),
+        float(Chem.rdMolDescriptors.CalcNumRings(mol)),
+        float(Chem.rdMolDescriptors.CalcNumAromaticRings(mol)),
+        float(len(v_groups)),
+        has_v,
+        float(rdMolDescriptors.CalcFractionCSP3(mol)),
+        float(len(Chem.GetSymmSSSR(mol)))
+    ]
 
+def moleToGraph(mole: Chem.Mol) -> Data | None:
+    """Verbatim GNN graph construction from user IPYNB."""
+    if mole is None:
+        return None
+    atomFeatures, reactionCenters = [], []
+    for atom in mole.GetAtoms():
+        basicFeatures = (
+            oneHotEncode(atom.GetSymbol(), atomSymbols) +                
+            oneHotEncode(atom.GetDegree(), atomDegree) +                 
+            [float(atom.GetFormalCharge())] +                                   
+            [float(atom.GetNumRadicalElectrons())] +                            
+            oneHotEncode(atom.GetHybridization(), atomHybridization) +   
+            [1.0 if atom.GetIsAromatic() else 0.0] +                         
+            oneHotEncode(atom.GetTotalNumHs(), hydrogenConnectedNumber)  
+        )
+        electronicFeatures = calculateElectronicFeatures(atom)          
+        stericFeatures = calculateStericFeatures(atom)                  
+        vinylFeatures = identifyVinylFeatures(atom, mole)              
+        resonanceFeatures = calculateResonanceFeatures(atom)           
+        ringFeatures = calculateRingFeatures(atom, mole)               
+        conformationalFeatures = [is_in_restricted_conformation(atom, mole)]
+        
+        features = (basicFeatures + electronicFeatures + stericFeatures + 
+                   vinylFeatures + resonanceFeatures + ringFeatures + 
+                   conformationalFeatures)
+        atomFeatures.append(features)
+        reactionCenters.append(vinylFeatures[0]) 
+    
+    x = torch.tensor(atomFeatures, dtype=torch.float)
+    r_centers = torch.tensor(reactionCenters, dtype=torch.float).view(-1, 1)
+    
+    edgeIndices, edgeFeatures = [], []
+    for bond in mole.GetBonds():
+        i = bond.GetBeginAtomIdx()
+        j = bond.GetEndAtomIdx()
+        edgeIndices.extend([[i, j], [j, i]])
+        bondFeatures = _bond_features(bond, mole)
+        edgeFeatures.extend([bondFeatures, bondFeatures])
+    
+    edgeIndex = torch.tensor(edgeIndices, dtype=torch.long).t().contiguous()
+    edgeAttr = torch.tensor(edgeFeatures, dtype=torch.float)
+    globalFeatures = torch.tensor(_global_features(mole), dtype=torch.float)
+    
+    data = Data(x=x, edge_index=edgeIndex, edge_attr=edgeAttr, 
+                global_features=globalFeatures, reaction_centers=r_centers)
+    return data
 
 def smiles_to_graph(smiles: str) -> dict[str, np.ndarray] | None:
-    """Convert SMILES → dict with node_features, edge_index, edge_attr, global_features."""
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        return None
-    mol = Chem.AddHs(mol)
-    try:
-        AllChem.EmbedMolecule(mol, randomSeed=42)
-        AllChem.MMFFOptimizeMolecule(mol)
-    except Exception:
-        pass
-    mol = Chem.RemoveHs(mol)
-
+    mol = smileToMole(smiles)
+    if mol is None: return None
     node_feats = [_atom_features(atom, mol) for atom in mol.GetAtoms()]
-    edge_index = []
-    edge_attr = []
+    edge_index, edge_attr = [], []
     for bond in mol.GetBonds():
         i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-        edge_index.append([i, j])
-        edge_index.append([j, i])
+        edge_index += [[i, j], [j, i]]
         bf = _bond_features(bond, mol)
-        edge_attr.append(bf)
-        edge_attr.append(bf)
+        edge_attr += [bf, bf]
 
-    glob = _global_features(mol)
     return {
         "node_features": np.array(node_feats, dtype=np.float32),
         "edge_index": np.array(edge_index, dtype=np.int64).T if edge_index else np.zeros((2, 0), dtype=np.int64),
-        "edge_attr": np.array(edge_attr, dtype=np.float32) if edge_attr else np.zeros((0, 13), dtype=np.float32),
-        "global_features": np.array(glob, dtype=np.float32),
+        "edge_attr": np.array(edge_attr, dtype=np.float32) if edge_attr else np.zeros((0, 16), dtype=np.float32),
+        "global_features": np.array(_global_features(mol), dtype=np.float32),
     }
-
 
 def graph_to_flat_features(graph: dict[str, np.ndarray]) -> np.ndarray:
     """Mean + max pool of node features + vinyl count + global → 124 per monomer."""
@@ -359,7 +485,7 @@ def compute_rdkit_descriptors(smiles: str) -> np.ndarray | None:
 #  4. 3D Autocorrelation Features (from VAE_siamese notebook)
 # ──────────────────────────────────────────────────────────────────────
 def compute_3d_autocorr(smiles: str) -> np.ndarray | None:
-    """CalcAUTOCORR3D — 80-dim 3D spatial autocorrelation descriptors."""
+    """CalcAUTOCORR3D - 80-dim 3D spatial autocorrelation descriptors."""
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None

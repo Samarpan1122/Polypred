@@ -2,7 +2,7 @@
 
 **Plug-and-play ML platform for copolymerisation reactivity-ratio (r₁, r₂) prediction from monomer SMILES pairs.**
 
-22+ models covering deep learning (Siamese, VAE, LSTM, GAT) and traditional ML (RF, XGBoost, SVM, KNN, …) — all extracted from 12 research notebooks.
+22+ models covering deep learning (Siamese, VAE, LSTM, GAT) and traditional ML (RF, XGBoost, SVM, KNN, …) - all extracted from 12 research notebooks.
 
 ---
 
@@ -103,17 +103,17 @@ curl -X POST http://localhost:8000/api/predict/single \
    ./deploy.sh latest
    ```
 
-4. **Deploy frontend** — push to Vercel or use the Docker image.
+4. **Deploy frontend** - push to Vercel or use the Docker image.
 
 ### AWS Resources Created
 
-- **S3 bucket** — encrypted model weight storage
-- **ECR repository** — Docker image registry
-- **ECS Fargate** — containerised backend (1 vCPU, 4 GB RAM)
-- **API Gateway** — HTTP API with CORS
-- **VPC** — isolated network with public subnets
-- **CloudWatch** — logs (30-day retention)
-- **IAM roles** — least-privilege S3 + ECS access
+- **S3 bucket** - encrypted model weight storage
+- **ECR repository** - Docker image registry
+- **ECS Fargate** - containerised backend (1 vCPU, 4 GB RAM)
+- **API Gateway** - HTTP API with CORS
+- **VPC** - isolated network with public subnets
+- **CloudWatch** - logs (30-day retention)
+- **IAM roles** - least-privilege S3 + ECS access
 
 ## Feature Engineering Pipeline
 

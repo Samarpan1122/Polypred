@@ -25,20 +25,12 @@ const PIPELINE_STEPS = [
     step: "1",
   },
   {
-    icon: Layers,
-    title: "Feature Engineering",
-    desc: "Morgan FP, RDKit descriptors, graph features, 3D autocorrelation, PCA, and more.",
-    href: "/features",
-    color: "text-purple-400",
-    step: "2",
-  },
-  {
     icon: Dumbbell,
     title: "Train & Tune",
-    desc: "27+ models with Grid/Random/Bayesian HP tuning and k-fold cross-validation.",
+    desc: "10+ models with Grid/Random/Bayesian HP tuning and k-fold cross-validation.",
     href: "/training",
     color: "text-primary-400",
-    step: "3",
+    step: "2",
   },
   {
     icon: BarChart3,
@@ -46,7 +38,7 @@ const PIPELINE_STEPS = [
     desc: "Loss curves, scatter plots, residuals, R² tables, feature importance, and more.",
     href: "/results",
     color: "text-green-400",
-    step: "4",
+    step: "3",
   },
 ];
 
@@ -61,7 +53,7 @@ const INFERENCE = [
   {
     icon: Cpu,
     title: "Model Catalog",
-    desc: "Browse all 10 model architectures and details.",
+    desc: "Browse all 10+ model architectures and details.",
     href: "/models",
     color: "text-purple-400",
   },
@@ -71,9 +63,9 @@ const STATS = [
   { label: "ML Models", value: "10" },
   { label: "Deep Learning", value: "7" },
   { label: "Traditional ML", value: "3" },
-  { label: "Feature Methods", value: "6" },
+  { label: "Feature Methods", value: "2" },
   { label: "HP Tuning", value: "3" },
-  { label: "Viz Types", value: "8+" },
+  { label: "Viz Types", value: "15+" },
 ];
 
 export default function DashboardPage() {
@@ -93,7 +85,7 @@ export default function DashboardPage() {
             Full ML experimentation platform for copolymerisation
             reactivity-ratio prediction. Upload datasets, engineer features,
             train <strong className="text-white">10 models</strong> with
-            hyperparameter tuning, and visualise every metric — from loss curves
+            hyperparameter tuning, and visualise every metric - from loss curves
             to predicted vs actual scatter plots.
           </p>
           <div className="flex gap-3">
@@ -174,48 +166,53 @@ export default function DashboardPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
             {
-              name: "Siamese MIMO",
-              desc: "AE encoder → pair features → dual output",
+              name: "Siamese LSTM",
+              desc: "Siamese GAT → BiLSTM → Explicit Difference Fusion → MLP",
               cat: "Deep Learning",
             },
             {
-              name: "Bi-LSTM (Optimized)",
-              desc: "2L×128h, Bayesian HP tuning, 20-fold CV",
+              name: "Siamese Regression",
+              desc: "Siamese 2-layer GAT → concatenation → MLP regressor",
               cat: "Deep Learning",
             },
             {
-              name: "GAT MIMO",
-              desc: "Multi-head graph attention on molecular graphs",
+              name: "Siamese Bayesian",
+              desc: "Siamese 2-layer GAT with Bayesian hyperparameter optimization",
               cat: "Deep Learning",
+            },
+            {
+              name: "LSTM Bayesian",
+              desc: "BiLSTM over SMILES tokens with Bayesian HP tuning",
+              cat: "Deep Learning",
+            },
+            {
+              name: "LSTM Siamese Bayesian",
+              desc: "Siamese GAT → BiLSTM with Bayesian HP optimization",
+              cat: "Deep Learning",
+            },
+            {
+              name: "Standalone LSTM",
+              desc: "BiLSTM over SMILES token sequences → MLP head",
+              cat: "Deep Learning",
+            },
+            {
+              name: "Ensemble Methods",
+              desc: "Gradient Boosting ensemble from cross-validation",
+              cat: "Traditional ML",
+            },
+            {
+              name: "Decision Tree",
+              desc: "Decision Tree Regressor with optimal hyperparameter search",
+              cat: "Traditional ML",
             },
             {
               name: "Random Forest",
-              desc: "200 trees on 248-dim graph-derived features",
+              desc: "Random Forest Regressor with optimal hyperparameter search",
               cat: "Traditional ML",
             },
             {
-              name: "XGBoost",
-              desc: "Gradient boosted trees, max_depth=5",
-              cat: "Traditional ML",
-            },
-            {
-              name: "GNN Custom",
-              desc: "Custom graph neural net with message passing",
-              cat: "Deep Learning",
-            },
-            {
-              name: "Bayesian Ridge",
-              desc: "Bayesian ridge regression with uncertainty",
-              cat: "Traditional ML",
-            },
-            {
-              name: "VAE",
-              desc: "Variational AE with KL divergence",
-              cat: "Generative",
-            },
-            {
-              name: "Neural Net",
-              desc: "4-layer feedforward with dropout",
+              name: "Autoencoder",
+              desc: "Variational Graph Autoencoder (VGAE) + MLP Regression Head",
               cat: "Deep Learning",
             },
           ].map((m) => (

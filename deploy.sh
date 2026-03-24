@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ──────────────────────────────────────────────────────────
-#  PolyPred — Deploy Backend to AWS ECS Fargate
+#  PolyPred - Deploy Backend to AWS ECS Fargate
 # ──────────────────────────────────────────────────────────
 #  Usage:  ./deploy.sh [--tag <image_tag>]
 # ──────────────────────────────────────────────────────────

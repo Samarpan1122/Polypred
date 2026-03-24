@@ -21,7 +21,7 @@ variable "backend_cpu" {
 
 variable "backend_memory" {
   default = 4096
-  description = "Fargate memory (MB) — needs room for PyTorch + RDKit"
+  description = "Fargate memory (MB) - needs room for PyTorch + RDKit"
 }
 
 variable "frontend_domain" {

@@ -1,4 +1,4 @@
-"""Standard & Denoising Autoencoder — from siamese / siamese_somu_1 notebooks.
+"""Standard & Denoising Autoencoder - from siamese / siamese_somu_1 notebooks.
 
 Architecture: 2048 → 512 → 256 → 128 → 64 (latent)
 Activations : Tanh (hidden), Sigmoid (output)

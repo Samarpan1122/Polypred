@@ -37,10 +37,37 @@
 ━━━ [6/11] CloudWatch Logs ━━━
   ✓ Log groups ready
 ━━━ [7/11] Building Docker Image on AWS (CodeBuild) ━━━
-  Building natively on x86_64 with fast networking — full PyTorch GPU...
+  Building natively on x86_64 with fast networking - full PyTorch GPU...
   Build started: polypred-build:a602a240-1eed-4f3c-8cc0-7aaf30ad2f89
   Waiting for build to complete...
-  ⏳ Status: IN_PROGRESS  Phase: PROVISIONING          ⏳ Status: IN_PROGRESS  Phase: PRE_BUILD             ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: BUILD                 ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD            ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: PROVISIONING        
+  ⏳ Status: IN_PROGRESS  Phase: PRE_BUILD           
+  ⏳ Status: IN_PROGRESS  Phase: BUILD               
+  ⏳ Status: IN_PROGRESS  Phase: BUILD               
+  ⏳ Status: IN_PROGRESS  Phase: BUILD               
+  ⏳ Status: IN_PROGRESS  Phase: BUILD               
+  ⏳ Status: IN_PROGRESS  Phase: BUILD               
+  ⏳ Status: IN_PROGRESS  Phase: BUILD               
+  ⏳ Status: IN_PROGRESS  Phase: BUILD               
+  ⏳ Status: IN_PROGRESS  Phase: BUILD               
+  ⏳ Status: IN_PROGRESS  Phase: BUILD               
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
+  ⏳ Status: IN_PROGRESS  Phase: POST_BUILD          
   ✓ Docker image built and pushed to ECR!
 ━━━ [8/11] Application Load Balancer ━━━
   ✓ ALB: polypred-alb-175898082.us-east-1.elb.amazonaws.com
@@ -66,7 +93,7 @@
    Generating static pages (3/12) 
    Generating static pages (6/12) 
    Generating static pages (9/12) 
- ✓ Generating static pages (12/12)
+ ✓ Generating static pa-es (12/12)
    Finalizing page optimization ...
    Collecting build traces ...
 
@@ -96,7 +123,21 @@ Route (app)                              Size     First Load JS
   ⚠ CloudFront skipped — using S3 website URL
 
 ━━━ Waiting for backend to start... ━━━
-  ⏳ Waiting for ECS task... (1/40)  ⏳ Waiting for ECS task... (2/40)  ⏳ Waiting for ECS task... (3/40)  ⏳ Waiting for ECS task... (4/40)  ⏳ Waiting for ECS task... (5/40)  ⏳ Waiting for ECS task... (6/40)  ⏳ Waiting for ECS task... (7/40)  ⏳ Waiting for ECS task... (8/40)  ⏳ Waiting for ECS task... (9/40)  ⏳ Waiting for ECS task... (10/40)  ⏳ Waiting for ECS task... (11/40)  ⏳ Waiting for ECS task... (12/40)  ⏳ Waiting for ECS task... (13/40)  ⏳ Waiting for ECS task... (14/40)  ✓ Backend running! (1 task)
+  ⏳ Waiting for ECS task... (1/40)
+  ⏳ Waiting for ECS task... (2/40)
+  ⏳ Waiting for ECS task... (3/40)
+  ⏳ Waiting for ECS task... (4/40)
+  ⏳ Waiting for ECS task... (5/40)
+  ⏳ Waiting for ECS task... (6/40)
+  ⏳ Waiting for ECS task... (7/40)
+  ⏳ Waiting for ECS task... (8/40)
+  ⏳ Waiting for ECS task... (9/40)
+  ⏳ Waiting for ECS task... (10/40)
+  ⏳ Waiting for ECS task... (11/40)
+  ⏳ Waiting for ECS task... (12/40)
+  ⏳ Waiting for ECS task... (13/40)
+  ⏳ Waiting for ECS task... (14/40)
+  ✓ Backend running! (1 task)
   Health check: {"status":"healthy"}
 
 ╔════════════════════════════════════════════════════════════════════╗

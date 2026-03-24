@@ -1,5 +1,5 @@
 /* ──────────────────────────────────────────────────────────
-   PolyPred — API client
+   PolyPred - API client
    ────────────────────────────────────────────────────────── */
 
 import type {
@@ -19,7 +19,7 @@ import type {
   RankedModel,
 } from "./types";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = process.env.NODE_ENV === "production" ? "" : "http://localhost:8000";
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
