@@ -185,10 +185,11 @@ function ResultsContent() {
               <button
                 key={`${r.model_name}-${i}`}
                 onClick={() => setSelectedModel(r.model_name)}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${selectedModel === r.model_name
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                  selectedModel === r.model_name
                     ? "border-primary-400 bg-primary-600/10 text-primary-400"
                     : "border-[var(--border)] text-[var(--text-muted)] hover:border-primary-400/30"
-                  }`}
+                }`}
                 style={
                   selectedModel === r.model_name
                     ? { borderColor: COLORS[i % COLORS.length] }
@@ -206,10 +207,11 @@ function ResultsContent() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${tab === t.id
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
+                  tab === t.id
                     ? "bg-primary-600/20 text-primary-400"
                     : "text-[var(--text-muted)] hover:text-white"
-                  }`}
+                }`}
               >
                 <t.icon className="h-3.5 w-3.5" />
                 {t.label}
