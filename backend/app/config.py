@@ -11,6 +11,11 @@ class Settings:
     VERSION: str = "1.0.0"
     DESCRIPTION: str = "Plug-and-play ML models for copolymerization reactivity ratio prediction"
 
+    # AWS Cognito
+    COGNITO_USER_POOL_ID: str = os.getenv("COGNITO_USER_POOL_ID", "us-east-1_example")
+    COGNITO_CLIENT_ID: str = os.getenv("COGNITO_CLIENT_ID", "exampleclientid")
+    COGNITO_CLIENT_SECRET: str = os.getenv("COGNITO_CLIENT_SECRET", "")
+
     # AWS
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
     S3_BUCKET: str = os.getenv("S3_BUCKET", "polypred-models")
@@ -55,8 +60,8 @@ class Settings:
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost/polypred")
     
-    # Encryption (AWS KMS)
-    KMS_KEY_ID: str = os.getenv("KMS_KEY_ID", "alias/polypred-key")
+    # Encryption (AWS S3 managed encryption)
+    STORAGE_PRESIGN_TTL_SECONDS: int = int(os.getenv("STORAGE_PRESIGN_TTL_SECONDS", "300"))
 
     # All available model types
     MODEL_TYPES: list = [

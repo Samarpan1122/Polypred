@@ -128,6 +128,45 @@ export interface DatasetStats {
   total_cols: number;
 }
 
+export type PublicShareAssetType = "dataset" | "model";
+
+export interface PublicShareRequestPayload {
+  asset_type: PublicShareAssetType;
+  asset_id: string;
+  asset_name: string;
+  requester_name: string;
+  institutional_email: string;
+  affiliation: string;
+  department?: string;
+  position_title?: string;
+  university_id?: string;
+  orcid?: string;
+  country: string;
+  profile_url?: string;
+  research_title: string;
+  research_area: string;
+  research_summary: string;
+  intended_use: string;
+  funding_source?: string;
+  is_external_research_data: boolean;
+  external_data_source?: string;
+  external_data_license?: string;
+  citation_text?: string;
+  ethics_approval_required: boolean;
+  ethics_approval_reference?: string;
+  confirms_data_rights: boolean;
+  confirms_no_pii: boolean;
+  confirms_terms: boolean;
+  additional_notes?: string;
+}
+
+export interface PublicShareRequestResponse {
+  ok: boolean;
+  request_id: string;
+  status: string;
+  message: string;
+}
+
 // ─── Feature types ──────────────────────────────────────
 export type FeaturizationMethod =
   | "steric_index"
@@ -173,6 +212,7 @@ export type CVMethod =
   | "leave_one_monomer";
 
 export interface TrainRequest {
+  user_id?: string;
   dataset_id: string;
   feature_set_id?: string;
   featurization: FeaturizationMethod[];
@@ -278,6 +318,31 @@ export interface TrainResults {
     avg_r2_r1: number;
     avg_r2_r2: number;
   };
+}
+
+export interface StorageEncryptionPosture {
+  mode: string;
+  bucket_key_enabled: boolean;
+}
+
+export interface StorageFileItem {
+  key: string;
+  name: string;
+  section: "datasets" | "models" | "results" | "requests";
+  size: number;
+  etag: string;
+  last_modified?: string | null;
+  storage_class: string;
+  encryption: string;
+}
+
+export interface UserFilesResponse {
+  ok: boolean;
+  owner: string;
+  section: "all" | "datasets" | "models" | "results" | "requests";
+  count: number;
+  encryption: StorageEncryptionPosture;
+  files: StorageFileItem[];
 }
 
 export interface AvailableModel {

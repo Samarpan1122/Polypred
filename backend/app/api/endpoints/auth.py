@@ -9,12 +9,11 @@ from app.services.auth_service import (
     get_password_hash, 
     verify_password, 
     create_access_token,
-    verify_institutional_email,
-    ACCESS_TOKEN_EXPIRE_MINUTES
+    verify_institutional_email
 )
 from pydantic import BaseModel, EmailStr
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/api/auth_legacy", tags=["auth"])
 
 class UserCreate(BaseModel):
     full_name: str

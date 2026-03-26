@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  Globe2,
 } from "lucide-react";
 import {
   uploadDataset,
@@ -19,8 +20,21 @@ import {
   deleteDataset,
 } from "@/lib/api";
 import type { DatasetInfo, DatasetPreview, DatasetStats } from "@/lib/types";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import PublicShareRequestModal from "@/components/PublicShareRequestModal";
 
 export default function UploadPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const ownerId = user?.id || user?.email || "anonymous";
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
+
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,16 +43,17 @@ export default function UploadPage() {
   const [preview, setPreview] = useState<DatasetPreview | null>(null);
   const [stats, setStats] = useState<DatasetStats | null>(null);
   const [showStats, setShowStats] = useState(false);
+  const [shareTarget, setShareTarget] = useState<DatasetInfo | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const ds = await listDatasets();
+      const ds = await listDatasets(ownerId);
       setDatasets(ds);
     } catch {
       /* empty */
     }
-  }, []);
+  }, [ownerId]);
 
   useEffect(() => {
     refresh();
@@ -48,7 +63,7 @@ export default function UploadPage() {
     setUploading(true);
     setError(null);
     try {
-      await uploadDataset(file);
+      await uploadDataset(file, ownerId);
       await refresh();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Upload failed");
@@ -75,8 +90,8 @@ export default function UploadPage() {
     setShowStats(false);
     try {
       const [p, s] = await Promise.all([
-        getDatasetPreview(id, 50),
-        getDatasetStats(id),
+        getDatasetPreview(id, ownerId, 50),
+        getDatasetStats(id, ownerId),
       ]);
       setPreview(p);
       setStats(s);
@@ -87,7 +102,7 @@ export default function UploadPage() {
 
   const removeDaset = async (id: string) => {
     try {
-      await deleteDataset(id);
+      await deleteDataset(id, ownerId);
       if (selectedDs === id) {
         setSelectedDs(null);
         setPreview(null);
@@ -98,6 +113,14 @@ export default function UploadPage() {
       /* empty */
     }
   };
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -118,14 +141,16 @@ export default function UploadPage() {
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         onClick={() => fileRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 transition-colors ${dragOver
+        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 transition-colors ${
+          dragOver
             ? "border-primary-400 bg-primary-600/10"
             : "border-[var(--border)] hover:border-primary-400/50 hover:bg-[var(--bg-hover)]"
-          }`}
+        }`}
       >
         <Upload
-          className={`mb-3 h-10 w-10 ${dragOver ? "text-primary-400" : "text-[var(--text-muted)]"
-            }`}
+          className={`mb-3 h-10 w-10 ${
+            dragOver ? "text-primary-400" : "text-[var(--text-muted)]"
+          }`}
         />
         <p className="text-sm font-medium text-white">
           {uploading ? "Uploading..." : "Drop CSV here or click to browse"}
@@ -160,10 +185,11 @@ export default function UploadPage() {
             {datasets.map((ds) => (
               <div
                 key={ds.id}
-                className={`glass-card cursor-pointer rounded-xl p-4 transition-all ${selectedDs === ds.id
+                className={`glass-card cursor-pointer rounded-xl p-4 transition-all ${
+                  selectedDs === ds.id
                     ? "ring-2 ring-primary-400"
                     : "hover:ring-1 hover:ring-primary-400/30"
-                  }`}
+                }`}
                 onClick={() => selectDs(ds.id)}
               >
                 <div className="flex items-start justify-between">
@@ -205,6 +231,19 @@ export default function UploadPage() {
                     ))}
                   </div>
                 )}
+                <div className="mt-3 border-t border-[var(--border)] pt-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShareTarget(ds);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-primary-500/40 bg-primary-500/10 px-2 py-1 text-[11px] text-primary-300 hover:bg-primary-500/20"
+                  >
+                    <Globe2 className="h-3.5 w-3.5" />
+                    Make Public
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -345,6 +384,16 @@ export default function UploadPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {shareTarget && (
+        <PublicShareRequestModal
+          isOpen={!!shareTarget}
+          assetType="dataset"
+          assetId={shareTarget.id}
+          assetName={shareTarget.name}
+          onClose={() => setShareTarget(null)}
+        />
       )}
     </div>
   );

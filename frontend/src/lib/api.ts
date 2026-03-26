@@ -17,9 +17,23 @@ import type {
   AvailableModel,
   ReactionValidateResponse,
   RankedModel,
+  PublicShareRequestPayload,
+  PublicShareRequestResponse,
+  UserFilesResponse,
 } from "./types";
 
-const API = process.env.NODE_ENV === "production" ? "" : "http://localhost:8000";
+const getApiBase = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== "undefined") {
+    const isLocal =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    if (isLocal && window.location.port === "3000")
+      return "http://localhost:8000";
+  }
+  return "";
+};
+const API = getApiBase();
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
@@ -101,11 +115,13 @@ export async function validateMolecule(smiles: string): Promise<MoleculeInfo> {
 // ─── Datasets ─────────────────────────────────────────────
 export async function uploadDataset(
   file: File,
+  ownerId?: string,
   name?: string,
 ): Promise<DatasetInfo> {
   const formData = new FormData();
   formData.append("file", file);
   if (name) formData.append("name", name);
+  if (ownerId) formData.append("owner_id", ownerId);
   const res = await fetch(`${API}/api/datasets/upload`, {
     method: "POST",
     body: formData,
@@ -114,23 +130,34 @@ export async function uploadDataset(
   return res.json();
 }
 
-export async function listDatasets(): Promise<DatasetInfo[]> {
-  return fetchJson("/api/datasets/");
+export async function listDatasets(ownerId?: string): Promise<DatasetInfo[]> {
+  const suffix = ownerId ? `?owner_id=${encodeURIComponent(ownerId)}` : "";
+  return fetchJson(`/api/datasets/${suffix}`);
 }
 
 export async function getDatasetPreview(
   id: string,
+  ownerId?: string,
   rows = 50,
 ): Promise<DatasetPreview> {
-  return fetchJson(`/api/datasets/${id}/preview?rows=${rows}`);
+  const owner = ownerId ? `&owner_id=${encodeURIComponent(ownerId)}` : "";
+  return fetchJson(`/api/datasets/${id}/preview?rows=${rows}${owner}`);
 }
 
-export async function getDatasetStats(id: string): Promise<DatasetStats> {
-  return fetchJson(`/api/datasets/${id}/stats`);
+export async function getDatasetStats(
+  id: string,
+  ownerId?: string,
+): Promise<DatasetStats> {
+  const owner = ownerId ? `?owner_id=${encodeURIComponent(ownerId)}` : "";
+  return fetchJson(`/api/datasets/${id}/stats${owner}`);
 }
 
-export async function deleteDataset(id: string): Promise<void> {
-  await fetchJson(`/api/datasets/${id}`, { method: "DELETE" });
+export async function deleteDataset(
+  id: string,
+  ownerId?: string,
+): Promise<void> {
+  const owner = ownerId ? `?owner_id=${encodeURIComponent(ownerId)}` : "";
+  await fetchJson(`/api/datasets/${id}${owner}`, { method: "DELETE" });
 }
 
 // ─── Features ─────────────────────────────────────────────
@@ -201,4 +228,41 @@ export async function validateReaction(
 
 export async function getTopModels(): Promise<RankedModel[]> {
   return fetchJson("/api/reaction/top-models");
+}
+
+// ─── Public share requests ──────────────────────────────
+export async function submitPublicShareRequest(
+  payload: PublicShareRequestPayload,
+): Promise<PublicShareRequestResponse> {
+  return fetchJson("/api/public-share/requests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// ─── Storage ───────────────────────────────────────────
+export async function listUserFiles(
+  ownerId: string,
+  section: "all" | "datasets" | "models" | "results" | "requests" = "all",
+  maxKeys = 120,
+): Promise<UserFilesResponse> {
+  const query = new URLSearchParams({
+    owner_id: ownerId,
+    section,
+    max_keys: String(maxKeys),
+  });
+  return fetchJson(`/api/storage/user-files?${query.toString()}`);
+}
+
+export async function getUserDownloadUrl(
+  ownerId: string,
+  key: string,
+  expiresIn = 300,
+): Promise<{ ok: boolean; key: string; expires_in: number; url: string }> {
+  const query = new URLSearchParams({
+    owner_id: ownerId,
+    key,
+    expires_in: String(expiresIn),
+  });
+  return fetchJson(`/api/storage/download-url?${query.toString()}`);
 }

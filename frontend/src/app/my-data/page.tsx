@@ -13,12 +13,20 @@ import {
   AlertCircle 
 } from "lucide-react";
 
+interface StorageItem {
+  id: number;
+  name: string;
+  type: string;
+  isPublic: boolean;
+  date: string;
+}
+
 export default function MyDataPage() {
   const [showPublicForm, setShowPublicForm] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItem, setSelectedItem] = useState<StorageItem | null>(null);
 
   // Mock data for UI demonstration
-  const [data, setData] = useState([
+  const [data, setData] = useState<StorageItem[]>([
     { id: 1, name: "Copolymer_Dataset_v1.csv", type: "dataset", isPublic: false, date: "2024-03-20" },
     { id: 2, name: "Siamese_LSTM_Weights.pt", type: "model", isPublic: true, date: "2024-03-22" },
   ]);

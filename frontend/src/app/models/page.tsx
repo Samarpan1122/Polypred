@@ -5,7 +5,16 @@ import { listModels } from "@/lib/api";
 import type { ModelInfo, ModelCategory } from "@/lib/types";
 import { MODEL_CATEGORY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Cpu, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Cpu,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Globe2,
+} from "lucide-react";
+import PublicShareRequestModal from "@/components/PublicShareRequestModal";
+import type { PublicShareAssetType } from "@/lib/types";
 
 const CATEGORY_COLORS: Record<string, string> = {
   deep_learning: "bg-blue-500/10 text-blue-400 border-blue-500/30",
@@ -15,21 +24,69 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const MODEL_IMAGES: Record<string, string[]> = {
-  "decision_tree": ["image1.png", "image11.png", "image21.png", "image31.png"],
-  "random_forest": ["image2.png", "image12.png", "image22.png", "image32.png"],
-  "ensemble_methods": ["image3.png", "image13.png", "image23.png", "image33.png"],
-  "siamese_regression": ["image4.png", "image14.png", "image24.png", "image34.png", "image41.png"],
-  "standalone_lstm": ["image5.png", "image15.png", "image25.png", "image35.png", "image42.png"],
-  "autoencoder": ["image6.png", "image16.png", "image26.png", "image36.png", "image43.png"],
-  "siamese_lstm": ["image7.png", "image17.png", "image27.png", "image37.png", "image44.png"],
-  "siamese_bayesian": ["image8.png", "image18.png", "image28.png", "image38.png", "image45.png"],
-  "lstm_bayesian": ["image9.png", "image19.png", "image29.png", "image39.png", "image46.png"],
-  "lstm_siamese_bayesian": ["image10.png", "image20.png", "image30.png", "image40.png", "image47.png"],
+  decision_tree: ["image1.png", "image11.png", "image21.png", "image31.png"],
+  random_forest: ["image2.png", "image12.png", "image22.png", "image32.png"],
+  ensemble_methods: ["image3.png", "image13.png", "image23.png", "image33.png"],
+  siamese_regression: [
+    "image4.png",
+    "image14.png",
+    "image24.png",
+    "image34.png",
+    "image41.png",
+  ],
+  standalone_lstm: [
+    "image5.png",
+    "image15.png",
+    "image25.png",
+    "image35.png",
+    "image42.png",
+  ],
+  autoencoder: [
+    "image6.png",
+    "image16.png",
+    "image26.png",
+    "image36.png",
+    "image43.png",
+  ],
+  siamese_lstm: [
+    "image7.png",
+    "image17.png",
+    "image27.png",
+    "image37.png",
+    "image44.png",
+  ],
+  siamese_bayesian: [
+    "image8.png",
+    "image18.png",
+    "image28.png",
+    "image38.png",
+    "image45.png",
+  ],
+  lstm_bayesian: [
+    "image9.png",
+    "image19.png",
+    "image29.png",
+    "image39.png",
+    "image46.png",
+  ],
+  lstm_siamese_bayesian: [
+    "image10.png",
+    "image20.png",
+    "image30.png",
+    "image40.png",
+    "image47.png",
+  ],
 };
 
 const SUPPLEMENTARY_IMAGES = [
-  { src: "image48.png", caption: "Figure S48 - Chemical descriptor importance heatmap" },
-  { src: "image49.png", caption: "Figure S49 - Average chemical descriptor importance" },
+  {
+    src: "image48.png",
+    caption: "Figure S48 - Chemical descriptor importance heatmap",
+  },
+  {
+    src: "image49.png",
+    caption: "Figure S49 - Average chemical descriptor importance",
+  },
 ];
 
 // Static model descriptions (used when API isn't available)
@@ -37,7 +94,8 @@ const STATIC_MODELS: ModelInfo[] = [
   {
     name: "siamese_lstm",
     category: "benchmark",
-    description: "Siamese GAT → BiLSTM → Explicit Difference Fusion → MLP (r₁, r₂)",
+    description:
+      "Siamese GAT → BiLSTM → Explicit Difference Fusion → MLP (r₁, r₂)",
     input_type: "Molecular graph (58N + 7G features)",
     output_type: "(r₁, r₂)",
   },
@@ -51,7 +109,8 @@ const STATIC_MODELS: ModelInfo[] = [
   {
     name: "siamese_bayesian",
     category: "benchmark",
-    description: "Siamese 2-layer GAT with Bayesian hyperparameter optimization",
+    description:
+      "Siamese 2-layer GAT with Bayesian hyperparameter optimization",
     input_type: "Molecular graph (58N features)",
     output_type: "(r₁, r₂)",
   },
@@ -110,7 +169,15 @@ export default function ModelsPage() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<string>("");
-  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    images: string[];
+    index: number;
+  } | null>(null);
+  const [shareTarget, setShareTarget] = useState<{
+    assetType: PublicShareAssetType;
+    assetId: string;
+    assetName: string;
+  } | null>(null);
 
   useEffect(() => {
     listModels()
@@ -123,8 +190,16 @@ export default function ModelsPage() {
     const handleKey = (e: KeyboardEvent) => {
       if (!lightbox) return;
       if (e.key === "Escape") setLightbox(null);
-      if (e.key === "ArrowRight") setLightbox((p) => p ? { ...p, index: Math.min(p.index + 1, p.images.length - 1) } : null);
-      if (e.key === "ArrowLeft") setLightbox((p) => p ? { ...p, index: Math.max(p.index - 1, 0) } : null);
+      if (e.key === "ArrowRight")
+        setLightbox((p) =>
+          p
+            ? { ...p, index: Math.min(p.index + 1, p.images.length - 1) }
+            : null,
+        );
+      if (e.key === "ArrowLeft")
+        setLightbox((p) =>
+          p ? { ...p, index: Math.max(p.index - 1, 0) } : null,
+        );
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -221,7 +296,9 @@ export default function ModelsPage() {
                     m.category}
                 </span>
               </div>
-              <p className="text-xs text-[var(--text-muted)]">{m.description}</p>
+              <p className="text-xs text-[var(--text-muted)]">
+                {m.description}
+              </p>
               <div className="space-y-1 border-t border-[var(--border)] pt-2">
                 <div className="flex justify-between text-xs">
                   <span className="text-[var(--text-muted)]">Input</span>
@@ -233,6 +310,23 @@ export default function ModelsPage() {
                 </div>
               </div>
 
+              <div className="border-t border-[var(--border)] pt-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShareTarget({
+                      assetType: "model",
+                      assetId: m.name,
+                      assetName: m.name.replace(/_/g, " "),
+                    })
+                  }
+                  className="inline-flex items-center gap-1 rounded-md border border-primary-500/40 bg-primary-500/10 px-2 py-1 text-[11px] text-primary-300 hover:bg-primary-500/20"
+                >
+                  <Globe2 className="h-3.5 w-3.5" />
+                  Request Public Listing
+                </button>
+              </div>
+
               {imgs.length > 0 && (
                 <div className="mt-4 border-t border-[var(--border)] pt-3">
                   <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-primary-400">
@@ -242,7 +336,12 @@ export default function ModelsPage() {
                     {imgs.map((img, idx) => (
                       <button
                         key={img}
-                        onClick={() => openLightbox(imgs.map(i => `/lstm_images/${i}`), idx)}
+                        onClick={() =>
+                          openLightbox(
+                            imgs.map((i) => `/lstm_images/${i}`),
+                            idx,
+                          )
+                        }
                         className="group relative overflow-hidden rounded border border-[var(--border)] bg-white/5 transition-all hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/10"
                       >
                         <img
@@ -275,7 +374,12 @@ export default function ModelsPage() {
           {SUPPLEMENTARY_IMAGES.map((s, idx) => (
             <button
               key={s.src}
-              onClick={() => openLightbox(SUPPLEMENTARY_IMAGES.map(i => `/lstm_images/${i.src}`), idx)}
+              onClick={() =>
+                openLightbox(
+                  SUPPLEMENTARY_IMAGES.map((i) => `/lstm_images/${i.src}`),
+                  idx,
+                )
+              }
               className="group relative overflow-hidden rounded-lg border border-[var(--border)] bg-white/5 p-2 transition-all hover:border-primary-500/50"
             >
               <img
@@ -284,7 +388,9 @@ export default function ModelsPage() {
                 className="w-full rounded object-contain transition-transform group-hover:scale-[1.02]"
                 loading="lazy"
               />
-              <p className="mt-2 text-xs text-[var(--text-muted)]">{s.caption}</p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
+                {s.caption}
+              </p>
               <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 transition-all group-hover:bg-black/30">
                 <span className="text-sm font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
                   Click to zoom
@@ -320,7 +426,9 @@ export default function ModelsPage() {
             {/* Nav arrows */}
             {lightbox.index > 0 && (
               <button
-                onClick={() => setLightbox({ ...lightbox, index: lightbox.index - 1 })}
+                onClick={() =>
+                  setLightbox({ ...lightbox, index: lightbox.index - 1 })
+                }
                 className="absolute left-2 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:bg-black/80"
               >
                 <ChevronLeft className="h-6 w-6" />
@@ -328,7 +436,9 @@ export default function ModelsPage() {
             )}
             {lightbox.index < lightbox.images.length - 1 && (
               <button
-                onClick={() => setLightbox({ ...lightbox, index: lightbox.index + 1 })}
+                onClick={() =>
+                  setLightbox({ ...lightbox, index: lightbox.index + 1 })
+                }
                 className="absolute right-2 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:bg-black/80"
               >
                 <ChevronRight className="h-6 w-6" />
@@ -340,6 +450,16 @@ export default function ModelsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {shareTarget && (
+        <PublicShareRequestModal
+          isOpen={!!shareTarget}
+          assetType={shareTarget.assetType}
+          assetId={shareTarget.assetId}
+          assetName={shareTarget.assetName}
+          onClose={() => setShareTarget(null)}
+        />
       )}
     </div>
   );

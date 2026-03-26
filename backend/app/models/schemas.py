@@ -144,6 +144,7 @@ class TrainHPTuning(BaseModel):
 
 
 class TrainRequest(BaseModel):
+    user_id: str | None = None
     dataset_id: str
     target_cols: list[str] = Field(default_factory=lambda: ["r1", "r2"])
     smiles_col_a: str = "SMILES_A"

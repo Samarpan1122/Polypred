@@ -7,6 +7,9 @@ import time
 import uuid
 import json
 import traceback
+import tempfile
+import base64
+import re
 from pathlib import Path
 from typing import Any
 from threading import Thread, Lock
@@ -30,7 +33,8 @@ from app.models.schemas import (
     HPTuningMethod, CVMethod, SplitMethod,
 )
 from app.models.traditional import TraditionalModelWrapper
-from app.services.dataset_service import load_dataframe
+from app.services.dataset_service import load_dataframe, resolve_dataset_owner
+from app.services import s3_service
 from app.services.feature_service import (
     featurize_dataset, load_feature_set, _compute_features,
 )
@@ -79,20 +83,52 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
+def _owner_slug(owner_id: str | None) -> str:
+    raw = (owner_id or "anonymous").strip().lower()
+    safe = re.sub(r"[^a-z0-9._-]", "-", raw)
+    safe = re.sub(r"-+", "-", safe).strip("-.")
+    return safe or "anonymous"
+
+
+def _job_dir(job_id: str, user_id: str | None = None) -> Path:
+    if user_id:
+        p = RESULTS_DIR / "users" / _owner_slug(user_id) / job_id
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    found = _find_job_dir(job_id)
+    if found is not None:
+        return found
+    p = RESULTS_DIR / job_id
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _find_job_dir(job_id: str) -> Path | None:
+    candidate = RESULTS_DIR / job_id
+    if candidate.exists():
+        return candidate
+    users_dir = RESULTS_DIR / "users"
+    if users_dir.exists():
+        for owner_dir in users_dir.iterdir():
+            p = owner_dir / job_id
+            if p.exists():
+                return p
+    return None
+
+
 # ──────────────────────────────────────────────────────────
 #  File-based job tracking (works across multiple workers)
 # ──────────────────────────────────────────────────────────
-def _save_progress(job_id: str, progress: TrainProgress):
+def _save_progress(job_id: str, progress: TrainProgress, user_id: str | None = None):
     """Save job progress to file (shared across workers)."""
-    job_dir = RESULTS_DIR / job_id
-    job_dir.mkdir(parents=True, exist_ok=True)
+    job_dir = _job_dir(job_id, user_id=user_id)
     ppath = job_dir / "progress.json"
     ppath.write_text(progress.model_dump_json())
 
 
-def _load_progress(job_id: str) -> TrainProgress | None:
+def _load_progress(job_id: str, user_id: str | None = None) -> TrainProgress | None:
     """Load job progress from file."""
-    ppath = RESULTS_DIR / job_id / "progress.json"
+    ppath = _job_dir(job_id, user_id=user_id) / "progress.json"
     if ppath.exists():
         return TrainProgress.model_validate_json(ppath.read_text())
     return None
@@ -166,7 +202,7 @@ def start_training(req: TrainRequest) -> str:
         total_models=len(req.models),
         message="Queued...",
     )
-    _save_progress(job_id, progress)
+    _save_progress(job_id, progress, user_id=req.user_id)
 
     thread = Thread(target=_run_training, args=(job_id, req), daemon=True)
     thread.start()
@@ -178,7 +214,7 @@ def get_progress(job_id: str) -> TrainProgress | None:
 
 
 def get_results(job_id: str) -> dict | None:
-    rpath = RESULTS_DIR / job_id / "results.json"
+    rpath = _job_dir(job_id) / "results.json"
     if rpath.exists():
         return json.loads(rpath.read_text())
     return None
@@ -188,15 +224,21 @@ def list_jobs() -> list[dict]:
     """List all jobs from the results directory."""
     jobs = []
     if RESULTS_DIR.exists():
-        for job_dir in RESULTS_DIR.iterdir():
-            if job_dir.is_dir():
-                progress = _load_progress(job_dir.name)
-                if progress:
-                    jobs.append({
-                        "job_id": progress.job_id,
-                        "status": progress.status,
-                        "message": progress.message
-                    })
+        seen = set()
+        for progress_path in RESULTS_DIR.rglob("progress.json"):
+            job_id = progress_path.parent.name
+            if job_id in seen:
+                continue
+            seen.add(job_id)
+            try:
+                progress = TrainProgress.model_validate_json(progress_path.read_text())
+                jobs.append({
+                    "job_id": progress.job_id,
+                    "status": progress.status,
+                    "message": progress.message,
+                })
+            except Exception:
+                continue
     return jobs
 
 
@@ -224,7 +266,15 @@ def _run_training(job_id: str, req: TrainRequest):
     try:
         # 1. Load data
         _update_progress(job_id, message="Loading dataset...")
-        df = load_dataframe(req.dataset_id)
+        owner_for_dataset = req.user_id or resolve_dataset_owner(req.dataset_id)
+        if not owner_for_dataset:
+            _update_progress(
+                job_id,
+                status="failed",
+                message=f"Dataset {req.dataset_id} not found for owner {req.user_id or 'anonymous'}",
+            )
+            return
+        df = load_dataframe(req.dataset_id, owner_id=owner_for_dataset)
 
         # Validate SMILES columns
         if not req.smiles_col_a or req.smiles_col_a not in df.columns:
@@ -359,7 +409,7 @@ def _run_training(job_id: str, req: TrainRequest):
                 _update_progress(job_id, models_completed=len(all_results))
 
         # 7. Save results
-        _save_results(job_id, all_results, split_info)
+        _save_results(job_id, all_results, split_info, user_id=owner_for_dataset)
 
         elapsed = time.time() - t_start
         _update_progress(job_id, status="completed",
@@ -597,6 +647,16 @@ def _train_traditional(
         # Predict
         y_pred = model.predict(X_test)
 
+        if job_id:
+            _persist_model_artifact(
+                model=model,
+                model_type=mt,
+                user_id=req.user_id,
+                job_id=job_id,
+                suffix=target_name,
+                as_torch=False,
+            )
+
         if target_i == 0:
             y_true_r1_all = y_te.tolist()
             y_pred_r1_all = y_pred.tolist()
@@ -653,6 +713,16 @@ def _train_traditional(
         result.evs_r2, result.pearson_r2 = s2['evs'], s2['pearson']
 
     result.training_time_s = time.time() - t0
+
+    if job_id:
+        _persist_model_artifact(
+            model=model,
+            model_type=mt,
+            user_id=req.user_id,
+            job_id=job_id,
+            suffix="weights",
+            as_torch=True,
+        )
     
     # Generate Advanced Pyplot Analytics
     result.diagnostic_plots = _generate_diagnostic_plots(result, result_feature_names)
@@ -708,6 +778,37 @@ def _safe_val(v):
     if isinstance(v, (np.floating)):
         return float(v)
     return v
+
+
+def _persist_model_artifact(
+    model: Any,
+    model_type: str,
+    user_id: str | None,
+    job_id: str,
+    suffix: str,
+    as_torch: bool,
+):
+    """Persist model artifacts locally and to S3 under user scope."""
+    owner = _owner_slug(user_id)
+    local_dir = _job_dir(job_id, user_id=user_id) / "artifacts"
+    local_dir.mkdir(parents=True, exist_ok=True)
+    ext = "pt" if as_torch else "joblib"
+    local_path = local_dir / f"{model_type}_{suffix}.{ext}"
+
+    try:
+        if as_torch:
+            torch.save(model.state_dict(), local_path)
+        else:
+            import joblib
+            joblib.dump(model, local_path)
+        s3_service.upload_user_model(
+            local_path,
+            owner,
+            f"{job_id}/{model_type}_{suffix}.{ext}",
+        )
+    except Exception:
+        # Keep training/result generation resilient if artifact persistence fails.
+        pass
 
 
 # ──────────────────────────────────────────────────────────
@@ -834,6 +935,16 @@ def _train_smiles_lstm(mt: str, fp_data, Y_tr, Y_te, req, progress, job_id: str 
             result.evs_r2, result.pearson_r2 = s2['evs'], s2['pearson']
     
     result.training_time_s = time.time() - t0
+
+    if job_id:
+        _persist_model_artifact(
+            model=model,
+            model_type=mt,
+            user_id=req.user_id,
+            job_id=job_id,
+            suffix="weights",
+            as_torch=True,
+        )
     
     # Generate Advanced Pyplot Analytics
     result.diagnostic_plots = _generate_diagnostic_plots(result, [])
@@ -1060,6 +1171,16 @@ def _train_vae_model(fp_data, req, progress, job_id: str | None = None) -> Model
             _update_progress(job_id, current_epoch=ep + 1, train_loss=result.train_loss_curve[-20:])
 
     result.training_time_s = time.time() - t0
+
+    if job_id:
+        _persist_model_artifact(
+            model=model,
+            model_type="autoencoder",
+            user_id=req.user_id,
+            job_id=job_id,
+            suffix="weights",
+            as_torch=True,
+        )
     return result
 
 
@@ -1114,16 +1235,49 @@ def _cv_folds(cv: CVMethod) -> int:
     return {"kfold_5": 5, "kfold_10": 10, "kfold_20": 20, "kfold_100": 100}.get(cv.value, 5)
 
 
-def _save_results(job_id, results, split_info):
-    out_dir = RESULTS_DIR / job_id
-    out_dir.mkdir(parents=True, exist_ok=True)
+def _save_results(job_id, results, split_info, user_id: str | None = None):
+    out_dir = _job_dir(job_id, user_id=user_id)
+    best_r1 = max(results, key=lambda r: (r.r2_r1 if r.r2_r1 is not None else -1e9), default=None)
+    best_r2 = max(results, key=lambda r: (r.r2_r2 if r.r2_r2 is not None else -1e9), default=None)
+    r1_vals = [r.r2_r1 for r in results if r.r2_r1 is not None]
+    r2_vals = [r.r2_r2 for r in results if r.r2_r2 is not None]
     data = {
         "job_id": job_id,
         "split_info": split_info,
         "results": [r.model_dump() for r in results],
-        "summary": [{"model": r.model_name, "r2_r1": getattr(r, "r2_r1", 0.0), "time": r.training_time_s} for r in results],
+        "summary": {
+            "num_models": len(results),
+            "best_r1_model": best_r1.model_name if best_r1 else "",
+            "best_r2_model": best_r2.model_name if best_r2 else "",
+            "best_r1_r2": best_r1.r2_r1 if best_r1 else None,
+            "best_r2_r2": best_r2.r2_r2 if best_r2 else None,
+            "avg_r2_r1": float(np.mean(r1_vals)) if r1_vals else 0.0,
+            "avg_r2_r2": float(np.mean(r2_vals)) if r2_vals else 0.0,
+        },
+        "owner_id": _owner_slug(user_id),
     }
-    (out_dir / "results.json").write_text(json.dumps(data, default=str))
+    results_path = out_dir / "results.json"
+    results_path.write_text(json.dumps(data, default=str))
+
+    # Mirror results and plots to S3 by user for durable multi-user access.
+    try:
+        owner = _owner_slug(user_id)
+        s3_service.ensure_user_prefixes(owner)
+        s3_service.upload_bytes(
+            results_path.read_bytes(),
+            f"users/{owner}/results/{job_id}/results.json",
+            content_type="application/json",
+        )
+        for r in results:
+            for i, b64_plot in enumerate(r.diagnostic_plots or []):
+                if not isinstance(b64_plot, str) or "," not in b64_plot:
+                    continue
+                _, payload = b64_plot.split(",", 1)
+                img = base64.b64decode(payload)
+                key = f"users/{owner}/results/{job_id}/{r.model_name}/plot_{i+1:02d}.png"
+                s3_service.upload_bytes(img, key, content_type="image/png")
+    except Exception:
+        pass
 
 
 def _generate_diagnostic_plots(result: ModelResult, feature_names: list[str]) -> list[str]:

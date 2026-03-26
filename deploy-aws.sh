@@ -28,9 +28,24 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [ -f ".env.deploy" ]; then
+  set -a
+  source .env.deploy
+  set +a
+fi
+
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null)
 if [ -z "${ACCOUNT_ID}" ]; then
   echo "❌ AWS CLI not configured. Run 'aws configure' first."
+  exit 1
+fi
+
+COGNITO_USER_POOL_ID="${COGNITO_USER_POOL_ID:-us-east-1_AyPBc56Z0}"
+COGNITO_CLIENT_ID="${COGNITO_CLIENT_ID:-4kj08f4s31sog5l603f20s2krf}"
+COGNITO_CLIENT_SECRET="${COGNITO_CLIENT_SECRET:-}"
+
+if [ -z "${COGNITO_USER_POOL_ID}" ] || [ -z "${COGNITO_CLIENT_ID}" ]; then
+  echo "❌ Missing Cognito env vars. Export COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID before deploy."
   exit 1
 fi
 
@@ -57,6 +72,21 @@ ASG_NAME="${PROJECT}-gpu-asg"
 LAUNCH_TEMPLATE="${PROJECT}-gpu-lt"
 CAP_PROVIDER="${PROJECT}-gpu-cap"
 
+USE_GPU="${USE_GPU:-false}"
+if [ "${USE_GPU}" = "true" ]; then
+  CPU=16384
+  MEMORY=61440
+  DEVICE_MODE="cuda"
+  GPU_RESOURCE_JSON=',"resourceRequirements":[{"type":"GPU","value":"1"}]'
+  TASK_SIZE_LABEL="${CPU} CPU / ${MEMORY} MiB / 1x GPU"
+else
+  CPU=4096
+  MEMORY=8192
+  DEVICE_MODE="cpu"
+  GPU_RESOURCE_JSON=''
+  TASK_SIZE_LABEL="${CPU} CPU / ${MEMORY} MiB / CPU"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "╔════════════════════════════════════════════════════════╗"
@@ -66,6 +96,14 @@ echo "║  Account:  ${ACCOUNT_ID}                          ║"
 echo "║  GPU:      ${GPU_INSTANCE_TYPE} (24 GB VRAM, 16 vCPU, 64 GB)   ║"
 echo "╚════════════════════════════════════════════════════════╝"
 echo ""
+echo "  Cognito Pool:   ${COGNITO_USER_POOL_ID}"
+echo "  Cognito Client: ${COGNITO_CLIENT_ID}"
+echo "  Runtime Mode:   ${DEVICE_MODE}"
+if [ -n "${COGNITO_CLIENT_SECRET}" ]; then
+  echo "  Cognito Secret: set"
+else
+  echo "  Cognito Secret: empty (expected for no-secret app client)"
+fi
 
 # ═══════════════════════════════════════════════════════════
 #  Step 1: ECR Repository
@@ -129,6 +167,29 @@ if [ "${SG_ID}" = "None" ] || [ -z "${SG_ID}" ]; then
   aws ec2 authorize-security-group-ingress --group-id "${SG_ID}" --protocol tcp --port 8000 --cidr 0.0.0.0/0 --region "${REGION}" > /dev/null
 fi
 echo "  ✓ SG: ${SG_ID}"
+
+# ═══════════════════════════════════════════════════════════
+#  Step 4c: Private Cognito Connectivity
+# ═══════════════════════════════════════════════════════════
+echo "━━━ [4c/11] Cognito VPC Endpoint ━━━"
+COGNITO_VPCE_SERVICE="com.amazonaws.${REGION}.cognito-idp"
+COGNITO_VPCE_ID=$(aws ec2 describe-vpc-endpoints \
+  --filters "Name=vpc-id,Values=${VPC_ID}" "Name=service-name,Values=${COGNITO_VPCE_SERVICE}" \
+  --query 'VpcEndpoints[0].VpcEndpointId' --output text --region "${REGION}" 2>/dev/null || echo "None")
+
+if [ "${COGNITO_VPCE_ID}" = "None" ] || [ -z "${COGNITO_VPCE_ID}" ]; then
+  COGNITO_VPCE_ID=$(aws ec2 create-vpc-endpoint \
+    --vpc-id "${VPC_ID}" \
+    --vpc-endpoint-type Interface \
+    --service-name "${COGNITO_VPCE_SERVICE}" \
+    --subnet-ids "${SUBNET_A}" "${SUBNET_B}" \
+    --security-group-ids "${SG_ID}" \
+    --private-dns-enabled \
+    --query 'VpcEndpoint.VpcEndpointId' --output text --region "${REGION}")
+  echo "  ✓ Created Cognito endpoint: ${COGNITO_VPCE_ID}"
+else
+  echo "  ✓ Cognito endpoint exists: ${COGNITO_VPCE_ID}"
+fi
 
 # ═══════════════════════════════════════════════════════════
 #  Step 4b: GPU EC2 Auto Scaling Group + Capacity Provider
@@ -394,9 +455,9 @@ while true; do
 done
 
 # ═══════════════════════════════════════════════════════════
-#  Step 8: Application Load Balancer
+#  Step 8: Load Balancer
 # ═══════════════════════════════════════════════════════════
-echo "━━━ [8/11] Application Load Balancer ━━━"
+echo "━━━ [8/11] Load Balancer ━━━"
 
 ALB_ARN=$(aws elbv2 describe-load-balancers --names "${ALB_NAME}" --query 'LoadBalancers[0].LoadBalancerArn' --output text --region "${REGION}" 2>/dev/null || echo "None")
 if [ "${ALB_ARN}" = "None" ] || [ -z "${ALB_ARN}" ]; then
@@ -455,9 +516,12 @@ aws ecs register-task-definition \
       {\"name\":\"S3_BUCKET\",\"value\":\"${S3_MODELS}\"},
       {\"name\":\"AWS_DEFAULT_REGION\",\"value\":\"${REGION}\"},
       {\"name\":\"ALLOWED_ORIGINS\",\"value\":\"*\"},
-      {\"name\":\"DEVICE\",\"value\":\"cuda\"}
-    ],
-    \"resourceRequirements\":[{\"type\":\"GPU\",\"value\":\"1\"}],
+      {\"name\":\"DEVICE\",\"value\":\"${DEVICE_MODE}\"},
+      {\"name\":\"COGNITO_USER_POOL_ID\",\"value\":\"${COGNITO_USER_POOL_ID}\"},
+      {\"name\":\"COGNITO_CLIENT_ID\",\"value\":\"${COGNITO_CLIENT_ID}\"},
+      {\"name\":\"COGNITO_CLIENT_SECRET\",\"value\":\"${COGNITO_CLIENT_SECRET}\"},
+      {\"name\":\"AWS_EC2_METADATA_DISABLED\",\"value\":\"true\"}
+    ]${GPU_RESOURCE_JSON},
     \"logConfiguration\":{
       \"logDriver\":\"awslogs\",
       \"options\":{
@@ -468,7 +532,7 @@ aws ecs register-task-definition \
     },
     \"essential\":true
   }]" --region "${REGION}" > /dev/null
-echo "  ✓ Task: ${TASK_FAMILY} (${CPU} CPU / ${MEMORY} MiB / 1x GPU)"
+echo "  ✓ Task: ${TASK_FAMILY} (${TASK_SIZE_LABEL})"
 
 # Delete old Fargate service if it exists (can't change launch type in-place)
 EXISTING_SVC=$(aws ecs describe-services --cluster "${CLUSTER}" --services "${SERVICE}" \
@@ -504,7 +568,7 @@ if [ "${EXISTING_SVC}" != "UPDATED" ]; then
     --desired-count 1 \
     --capacity-provider-strategy "capacityProvider=${CAP_PROVIDER},weight=1,base=1" \
     --load-balancers "targetGroupArn=${TG_ARN},containerName=${PROJECT}-backend,containerPort=8000" \
-    --network-configuration "awsvpcConfiguration={subnets=[${SUBNET_A},${SUBNET_B}],securityGroups=[${SG_ID}],assignPublicIp=DISABLED}" \
+    --network-configuration "awsvpcConfiguration={subnets=[${SUBNET_A},${SUBNET_B}],securityGroups=[${SG_ID}],assignPublicIp=ENABLED}" \
     --region "${REGION}" > /dev/null
 fi
 echo "  ✓ Service: ${SERVICE} (GPU-accelerated)"
@@ -515,7 +579,7 @@ echo "  ✓ Service: ${SERVICE} (GPU-accelerated)"
 echo "━━━ [10/11] Building & Deploying Frontend ━━━"
 
 cd "${SCRIPT_DIR}/frontend"
-echo "  Building Next.js with API_URL=${BACKEND_URL} ..."
+echo "  Building Next.js with relative API_URL for CloudFront usage..."
 NEXT_PUBLIC_API_URL="" npm run build >/dev/null 2>&1 || NEXT_PUBLIC_API_URL="" npm run build
 echo "  ✓ Frontend built (static export)"
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/contexts/AuthContext";
 import {
   BarChart3,
   TrendingUp,
@@ -239,6 +240,23 @@ function ResultsContent() {
 }
 
 export default function ResultsPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <Suspense fallback={<div className="text-white p-6">Loading...</div>}>
       <ResultsContent />

@@ -9,6 +9,8 @@ export const metadata: Metadata = {
     "Plug-and-play ML platform for predicting r₁ and r₂ reactivity ratios from monomer SMILES pairs. 22+ models including Siamese, VAE, LSTM, GAT, Random Forest, XGBoost and more.",
 };
 
+import { AuthProvider } from "@/lib/contexts/AuthContext";
+
 export default function RootLayout({
   children,
 }: {
@@ -17,11 +19,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen">
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <Navbar />
-            <main className="flex-1 overflow-y-auto p-6 flex flex-col">
+        <AuthProvider>
+          <div className="flex h-screen overflow-hidden">
+            <Sidebar />
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <Navbar />
+              <main className="flex-1 overflow-y-auto p-6 flex flex-col">
               <div className="flex-1">
                 {children}
               </div>
@@ -31,6 +34,7 @@ export default function RootLayout({
             </main>
           </div>
         </div>
+        </AuthProvider>
       </body>
     </html>
   );

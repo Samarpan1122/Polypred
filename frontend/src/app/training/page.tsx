@@ -29,6 +29,7 @@ import type {
   AvailableModel,
 } from "@/lib/types";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/contexts/AuthContext";
 
 import {
   LineChart,
@@ -45,6 +46,15 @@ import {
 
 export default function TrainingPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const ownerId = user?.id || user?.email || "anonymous";
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
+
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
   const [featureSets, setFeatureSets] = useState<FeatureSetInfo[]>([]);
   const [availableModels, setAvailableModels] = useState<
@@ -74,9 +84,10 @@ export default function TrainingPage() {
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    if (!user?.email && !user?.id) return;
     (async () => {
       const [ds, fs, am] = await Promise.all([
-        listDatasets(),
+        listDatasets(ownerId),
         listFeatureSets(),
         getAvailableModels(),
       ]);
@@ -108,7 +119,7 @@ export default function TrainingPage() {
         }
       }
     })();
-  }, []);
+  }, [ownerId, user?.email, user?.id]);
 
   const dsInfo = datasets.find((d) => d.id === selectedDs);
 
@@ -136,6 +147,7 @@ export default function TrainingPage() {
     setProgress(null);
 
     const req: TrainRequest = {
+      user_id: ownerId,
       dataset_id: selectedDs,
       feature_set_id: selectedFs || undefined,
       featurization: ["all"] as FeaturizationMethod[],
@@ -198,6 +210,14 @@ export default function TrainingPage() {
       train: tl,
       val: progress.val_loss?.[i] ?? null,
     })) || [];
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">

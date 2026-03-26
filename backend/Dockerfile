@@ -5,6 +5,7 @@ WORKDIR /app
 # Ensure PyTorch can find NVIDIA runtime libraries injected by ECS GPU
 ENV PATH /usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
 ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64
+ENV AWS_EC2_METADATA_DISABLED=true
 # System deps for RDKit + build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \

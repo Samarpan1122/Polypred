@@ -2,15 +2,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FlaskConical, Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Login logic...
+    try {
+      await login(email, password);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -20,13 +31,18 @@ export default function LoginPage() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary-600/10 text-primary-400">
             <Lock className="h-8 w-8" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-white">Researcher Login</h2>
+          <h2 className="mt-6 text-3xl font-extrabold text-white">
+            Welcome back
+          </h2>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Access your encrypted datasets and private models.
+            Sign in to access your workspace and predictions.
           </p>
         </div>
 
-        <form className="glass-card mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form
+          className="glass-card mt-8 space-y-6 glow-blue transition-all"
+          onSubmit={handleSubmit}
+        >
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] ml-1 mb-1.5">
@@ -37,7 +53,9 @@ export default function LoginPage() {
                 <input
                   type="email"
                   required
-                  placeholder="name@university.edu"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
                   className="smiles-input w-full pl-10"
                 />
               </div>
@@ -52,11 +70,23 @@ export default function LoginPage() {
                 <input
                   type="password"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="smiles-input w-full pl-10"
                 />
               </div>
             </div>
+          </div>
+
+          <div className="flex items-center justify-end">
+            <Link
+              href="/forgot-password"
+              title="Forgot password"
+              className="text-xs font-medium text-primary-400 hover:text-primary-300"
+            >
+              Forgot password?
+            </Link>
           </div>
 
           <button
@@ -70,11 +100,14 @@ export default function LoginPage() {
 
           <div className="text-center text-sm">
             <span className="text-[var(--text-muted)]">Need an account? </span>
-            <Link href="/signup" className="font-medium text-primary-400 hover:text-primary-300">
-              Register with your institution
+            <Link
+              href="/signup"
+              className="font-medium text-primary-400 hover:text-primary-300"
+            >
+              Create an account
             </Link>
           </div>
-          
+
           <div className="mt-4 flex items-center justify-center gap-2 border-t border-[var(--border)] pt-4">
             <ShieldCheck className="h-4 w-4 text-primary-400" />
             <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest font-bold">
