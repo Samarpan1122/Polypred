@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.config import settings
 from app.services import s3_service
+from app.services.dataset_service import list_datasets
 
 router = APIRouter(prefix="/api/storage", tags=["storage"])
 
@@ -43,7 +44,57 @@ def list_user_files(
     section: str = Query("all", pattern="^(all|datasets|models|results|requests)$"),
     max_keys: int = Query(200, ge=1, le=1000),
 ):
-    files = s3_service.list_user_files(owner_id=owner_id, section=section, max_keys=max_keys)
+    owner_slug = s3_service._safe_owner(owner_id)
+    files = []
+    warnings: list[str] = []
+
+    # Always surface uploaded datasets instantly from local metadata.
+    if section in ("all", "datasets"):
+        try:
+            local_sets = list_datasets(owner_id=owner_id)
+            for ds in local_sets:
+                ds_name = ds.get("filename") or ds.get("name") or f"dataset_{ds.get('id', '')}.csv"
+                files.append(
+                    {
+                        "key": ds.get("s3_key") or f"users/{owner_slug}/datasets/{ds.get('id')}/{ds_name}",
+                        "name": ds_name,
+                        "section": "datasets",
+                        "size": 0,
+                        "etag": "",
+                        "last_modified": ds.get("uploaded_at"),
+                        "storage_class": "S3" if ds.get("s3_synced") else "LOCAL",
+                        "encryption": "AES256",
+                        "downloadable": bool(ds.get("s3_synced") and ds.get("s3_key")),
+                    }
+                )
+        except Exception as exc:
+            warnings.append(f"local datasets unavailable: {exc}")
+
+    # Query S3 only for sections that require remote listing.
+    s3_targets: list[str]
+    if section == "all":
+        s3_targets = ["models", "results", "requests"]
+    elif section == "datasets":
+        s3_targets = []
+    else:
+        s3_targets = [section]
+
+    remaining = max(0, max_keys - len(files))
+    for target in s3_targets:
+        if remaining <= 0:
+            break
+        try:
+            part = s3_service.list_user_files(owner_id=owner_id, section=target, max_keys=remaining)
+            for item in part:
+                item["downloadable"] = True
+            files.extend(part)
+            remaining = max(0, max_keys - len(files))
+        except Exception as exc:
+            warnings.append(f"s3 {target} unavailable: {exc}")
+
+    files.sort(key=lambda item: item.get("last_modified") or "", reverse=True)
+    files = files[:max_keys]
+
     return {
         "ok": True,
         "owner": owner_id,
@@ -51,6 +102,7 @@ def list_user_files(
         "count": len(files),
         "encryption": s3_service.get_encryption_posture(),
         "files": files,
+        "warnings": warnings,
     }
 
 

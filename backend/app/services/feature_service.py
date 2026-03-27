@@ -28,7 +28,7 @@ from app.models.feature_engineering import (
     smiles_to_graph,
     graph_to_flat_features,
 )
-from app.services.dataset_service import load_dataframe, DATA_DIR
+from app.services.dataset_service import load_dataframe, get_dataset
 
 FEATURE_DIR = Path(os.getenv("FEATURE_DIR", "/tmp/polypred_features"))
 FEATURE_DIR.mkdir(parents=True, exist_ok=True)
@@ -41,9 +41,10 @@ def featurize_dataset(
     methods: list[FeaturizationMethod],
     reduction: FeatureReductionMethod = FeatureReductionMethod.NONE,
     reduction_params: dict[str, Any] | None = None,
+    owner_id: str | None = None,
 ) -> dict:
     """Featurize every row of a dataset and optionally reduce features."""
-    df = load_dataframe(dataset_id)
+    df = load_dataframe(dataset_id, owner_id=owner_id)
     reduction_params = reduction_params or {}
 
     # ── 1. Generate raw features ──────────────────────────
@@ -139,9 +140,10 @@ def featurize_dataset(
     elif reduction == FeatureReductionMethod.SELECT_K_BEST:
         k = reduction_params.get("k", min(50, X.shape[1]))
         # Need targets for this - use first target col
-        meta = json.loads((DATA_DIR / dataset_id / "meta.json").read_text())
-        if meta.get("target_cols"):
-            tcol = meta["target_cols"][0]
+        meta = get_dataset(dataset_id, owner_id=owner_id)
+        target_cols = meta.get("target_columns") or meta.get("target_cols") or []
+        if target_cols:
+            tcol = target_cols[0]
             y = df.loc[valid_indices, tcol].values.astype(float)
             y = np.nan_to_num(y)
             sel = SelectKBest(f_regression, k=k)

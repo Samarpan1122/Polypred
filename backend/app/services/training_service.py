@@ -90,6 +90,10 @@ def _owner_slug(owner_id: str | None) -> str:
     return safe or "anonymous"
 
 
+def _owner_missing(owner_id: str | None) -> bool:
+    return _owner_slug(owner_id) == "anonymous"
+
+
 def _job_dir(job_id: str, user_id: str | None = None) -> Path:
     if user_id:
         p = RESULTS_DIR / "users" / _owner_slug(user_id) / job_id
@@ -195,6 +199,13 @@ DEFAULT_HP_GRIDS: dict[str, dict[str, list]] = {
 # ──────────────────────────────────────────────────────────
 def start_training(req: TrainRequest) -> str:
     """Start a training job in background, return job_id."""
+    # Normalize/repair owner scope up-front so progress and results are tracked
+    # under the same user namespace used by dataset upload.
+    if _owner_missing(req.user_id):
+        resolved = resolve_dataset_owner(req.dataset_id)
+        if resolved:
+            req.user_id = resolved
+
     job_id = str(uuid.uuid4())[:8]
     progress = TrainProgress(
         job_id=job_id,
@@ -266,15 +277,32 @@ def _run_training(job_id: str, req: TrainRequest):
     try:
         # 1. Load data
         _update_progress(job_id, message="Loading dataset...")
-        owner_for_dataset = req.user_id or resolve_dataset_owner(req.dataset_id)
+        owner_for_dataset = None if _owner_missing(req.user_id) else req.user_id
+        df = None
+
+        if owner_for_dataset:
+            try:
+                df = load_dataframe(req.dataset_id, owner_id=owner_for_dataset)
+            except FileNotFoundError:
+                # Owner mismatch can happen with stale browser session values.
+                owner_for_dataset = resolve_dataset_owner(req.dataset_id)
+
+        if not owner_for_dataset:
+            owner_for_dataset = resolve_dataset_owner(req.dataset_id)
+
         if not owner_for_dataset:
             _update_progress(
                 job_id,
                 status="failed",
-                message=f"Dataset {req.dataset_id} not found for owner {req.user_id or 'anonymous'}",
+                message=(
+                    f"Dataset {req.dataset_id} not found for owner "
+                    f"{req.user_id or 'anonymous'}"
+                ),
             )
             return
-        df = load_dataframe(req.dataset_id, owner_id=owner_for_dataset)
+
+        if df is None:
+            df = load_dataframe(req.dataset_id, owner_id=owner_for_dataset)
 
         # Validate SMILES columns
         if not req.smiles_col_a or req.smiles_col_a not in df.columns:
@@ -296,6 +324,7 @@ def _run_training(job_id: str, req: TrainRequest):
                 req.smiles_col_a,
                 req.smiles_col_b,
                 req.featurization,
+                owner_id=owner_for_dataset,
             )
             if "error" in fs_result:
                 _update_progress(job_id, status="failed", message=fs_result["error"])

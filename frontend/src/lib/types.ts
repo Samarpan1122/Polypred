@@ -334,6 +334,7 @@ export interface StorageFileItem {
   last_modified?: string | null;
   storage_class: string;
   encryption: string;
+  downloadable?: boolean;
 }
 
 export interface UserFilesResponse {
@@ -343,6 +344,7 @@ export interface UserFilesResponse {
   count: number;
   encryption: StorageEncryptionPosture;
   files: StorageFileItem[];
+  warnings?: string[];
 }
 
 export interface AvailableModel {

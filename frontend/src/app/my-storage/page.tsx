@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 export default function MyStoragePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const ownerId = user?.id || user?.email || "anonymous";
   const [section, setSection] = useState<
     "all" | "datasets" | "models" | "results" | "requests"
   >("datasets");
@@ -28,11 +29,11 @@ export default function MyStoragePage() {
   const [encryptionMode, setEncryptionMode] = useState("unknown");
 
   const loadFiles = async () => {
-    if (!user?.id) return;
+    if (!ownerId) return;
     setBusy(true);
     setError(null);
     try {
-      const resp = await listUserFiles(user.id, section, 120);
+      const resp = await listUserFiles(ownerId, section, 120);
       setFiles(resp.files);
       setEncryptionMode(resp.encryption.mode || "unknown");
     } catch (err) {
@@ -46,9 +47,9 @@ export default function MyStoragePage() {
   };
 
   const onDownload = async (key: string) => {
-    if (!user?.id) return;
+    if (!ownerId) return;
     try {
-      const resp = await getUserDownloadUrl(user.id, key, 300);
+      const resp = await getUserDownloadUrl(ownerId, key, 300);
       window.open(resp.url, "_blank", "noopener,noreferrer");
     } catch (err) {
       setError(
@@ -145,7 +146,7 @@ export default function MyStoragePage() {
               Owner Scope
             </h3>
             <p className="text-sm font-semibold text-white mt-1 break-all">
-              {user.id}
+              {ownerId}
             </p>
             <p className="text-xs text-[var(--text-muted)] mt-1">
               Only keys under your prefix are listed.
@@ -229,7 +230,13 @@ export default function MyStoragePage() {
                   </div>
                   <button
                     onClick={() => onDownload(item.key)}
-                    className="inline-flex items-center gap-2 rounded border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-white/10"
+                    disabled={item.downloadable === false}
+                    className="inline-flex items-center gap-2 rounded border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    title={
+                      item.downloadable === false
+                        ? "This file is still syncing to S3"
+                        : "Download"
+                    }
                   >
                     <Download className="h-3.5 w-3.5" />
                     Download

@@ -247,12 +247,16 @@ def list_datasets(owner_id: str | None = None) -> list[dict]:
             results.append({
                 "id": meta["id"],
                 "name": meta.get("name", meta.get("filename", "dataset")),
+                "filename": meta.get("filename", meta.get("name", "dataset")),
                 "rows": meta["rows"],
                 "cols": meta.get("cols", len(meta.get("columns", []))),
                 "columns": meta.get("columns", []),
                 "smiles_columns": meta.get("smiles_columns", []),
                 "target_columns": meta.get("target_columns", meta.get("target_cols", [])),
                 "uploaded_at": meta.get("uploaded_at", ""),
+                "s3_synced": bool(meta.get("s3_synced", False)),
+                "s3_key": meta.get("s3_key"),
+                "s3_sync_status": meta.get("s3_sync_status", "unknown"),
             })
     return results
 

@@ -251,7 +251,15 @@ export async function listUserFiles(
     section,
     max_keys: String(maxKeys),
   });
-  return fetchJson(`/api/storage/user-files?${query.toString()}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    return await fetchJson(`/api/storage/user-files?${query.toString()}`, {
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function getUserDownloadUrl(
