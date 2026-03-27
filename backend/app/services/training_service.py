@@ -127,14 +127,23 @@ def _save_progress(job_id: str, progress: TrainProgress, user_id: str | None = N
     """Save job progress to file (shared across workers)."""
     job_dir = _job_dir(job_id, user_id=user_id)
     ppath = job_dir / "progress.json"
-    ppath.write_text(progress.model_dump_json())
+    payload = progress.model_dump_json()
+    # Atomic replace avoids readers seeing partial JSON during concurrent writes.
+    tmp_path = ppath.with_suffix(".json.tmp")
+    tmp_path.write_text(payload)
+    tmp_path.replace(ppath)
 
 
 def _load_progress(job_id: str, user_id: str | None = None) -> TrainProgress | None:
     """Load job progress from file."""
     ppath = _job_dir(job_id, user_id=user_id) / "progress.json"
     if ppath.exists():
-        return TrainProgress.model_validate_json(ppath.read_text())
+        # Retry once in case we hit a write/read race window.
+        for _ in range(2):
+            try:
+                return TrainProgress.model_validate_json(ppath.read_text())
+            except Exception:
+                time.sleep(0.03)
     return None
 
 
@@ -210,6 +219,8 @@ def start_training(req: TrainRequest) -> str:
     progress = TrainProgress(
         job_id=job_id,
         status="queued",
+        stage="queued",
+        stage_progress=0.0,
         total_models=len(req.models),
         message="Queued...",
     )
@@ -221,7 +232,35 @@ def start_training(req: TrainRequest) -> str:
 
 
 def get_progress(job_id: str) -> TrainProgress | None:
-    return _load_progress(job_id)
+    try:
+        p = _load_progress(job_id)
+        if p is None:
+            return None
+
+        # If results exist but progress did not transition, auto-finalize state.
+        if p.status == "running":
+            results = get_results(job_id)
+            if results and isinstance(results, dict):
+                model_results = results.get("results") or []
+                has_model_error = any(
+                    isinstance(r, dict)
+                    and isinstance(r.get("best_params"), dict)
+                    and bool(r.get("best_params", {}).get("error"))
+                    for r in model_results
+                )
+                p.status = "failed" if has_model_error else "completed"
+                p.models_completed = max(p.models_completed, p.total_models)
+                if p.status == "failed":
+                    p.message = "Training finished with one or more model errors"
+                else:
+                    p.message = p.message or "Training completed"
+                try:
+                    _save_progress(job_id, p)
+                except Exception:
+                    pass
+        return p
+    except Exception:
+        return None
 
 
 def get_results(job_id: str) -> dict | None:
@@ -271,12 +310,12 @@ def _update_progress(job_id: str, **kwargs):
 
 
 def _run_training(job_id: str, req: TrainRequest):
-    _update_progress(job_id, status="running")
+    _update_progress(job_id, status="running", stage="initializing", stage_progress=1.0)
     t_start = time.time()
 
     try:
         # 1. Load data
-        _update_progress(job_id, message="Loading dataset...")
+        _update_progress(job_id, message="Loading dataset...", stage="loading_dataset", stage_progress=5.0)
         owner_for_dataset = None if _owner_missing(req.user_id) else req.user_id
         df = None
 
@@ -315,16 +354,34 @@ def _run_training(job_id: str, req: TrainRequest):
             return
 
         # 2. Featurize (or load existing)
-        _update_progress(job_id, message=f"Featurizing {len(df)} molecules - this may take a few minutes...")
+        _update_progress(
+            job_id,
+            message=f"Featurizing {len(df)} molecules - this may take a few minutes...",
+            stage="featurizing",
+            stage_progress=15.0,
+        )
         if req.feature_set_id:
             X, valid_idx, fs_meta = load_feature_set(req.feature_set_id)
         else:
+            def _feat_progress(done: int, total: int, phase: str):
+                pct = 15.0 + (35.0 * (done / max(total, 1)))
+                _update_progress(
+                    job_id,
+                    stage="featurizing",
+                    stage_progress=round(min(50.0, pct), 1),
+                    current_epoch=done,
+                    total_epochs=total,
+                    message=f"Featurizing molecules... {done}/{total}",
+                    elapsed_seconds=round(time.time() - t_start, 1),
+                )
+
             fs_result = featurize_dataset(
                 req.dataset_id,
                 req.smiles_col_a,
                 req.smiles_col_b,
                 req.featurization,
                 owner_id=owner_for_dataset,
+                progress_callback=_feat_progress,
             )
             if "error" in fs_result:
                 _update_progress(job_id, status="failed", message=fs_result["error"])
@@ -355,7 +412,7 @@ def _run_training(job_id: str, req: TrainRequest):
             _update_progress(job_id, message=f"Predicting log10 of: {', '.join(transformed_targets)}")
 
         # 4. Split - directly split the feature matrix to avoid index-mapping bugs
-        _update_progress(job_id, message="Splitting data...")
+        _update_progress(job_id, message="Splitting data...", stage="splitting", stage_progress=55.0)
         from sklearn.model_selection import train_test_split as sk_split
         n_samples = X.shape[0]
         indices = np.arange(n_samples)
@@ -392,7 +449,12 @@ def _run_training(job_id: str, req: TrainRequest):
         )
         fp_data = None
         if needs_seq_data:
-            _update_progress(job_id, message="Preparing SMILES and graph features for DL models...")
+            _update_progress(
+                job_id,
+                message="Preparing SMILES and graph features for DL models...",
+                stage="preparing_model_inputs",
+                stage_progress=62.0,
+            )
             fp_data = _prepare_smiles_and_graphs(
                 df, valid_idx, req.smiles_col_a, req.smiles_col_b,
                 tr_idx.tolist(), te_idx.tolist()
@@ -408,6 +470,8 @@ def _run_training(job_id: str, req: TrainRequest):
                 # models_completed stays what it was, until this task finishes
                 elapsed_seconds=round(time.time() - t_start, 1),
                 message=f"Training {model_type.value}...",
+                stage="training",
+                stage_progress=70.0 + (20.0 * (mi / max(len(req.models), 1))),
                 train_loss=[],
                 val_loss=[],
                 train_r2=[],
@@ -435,18 +499,28 @@ def _run_training(job_id: str, req: TrainRequest):
                 res = future.result()
                 all_results.append(res)
                 # Update completed count
-                _update_progress(job_id, models_completed=len(all_results))
+                _update_progress(
+                    job_id,
+                    models_completed=len(all_results),
+                    stage="training",
+                    stage_progress=70.0 + (20.0 * (len(all_results) / max(len(req.models), 1))),
+                    elapsed_seconds=round(time.time() - t_start, 1),
+                )
 
         # 7. Save results
+        _update_progress(job_id, stage="saving_results", stage_progress=95.0, message="Saving results...")
         _save_results(job_id, all_results, split_info, user_id=owner_for_dataset)
 
         elapsed = time.time() - t_start
         _update_progress(job_id, status="completed",
+                        stage="completed",
+                        stage_progress=100.0,
                         elapsed_seconds=elapsed,
                         message=f"Completed {len(all_results)} models in {elapsed:.1f}s")
 
     except Exception as e:
         _update_progress(job_id, status="failed",
+                        stage="failed",
                         message=str(e) or f"{type(e).__name__}: check server logs")
         traceback.print_exc()
 
@@ -494,7 +568,7 @@ def _train_single_model(
                 X_train = scaler.fit_transform(X_train)
                 X_test = scaler.transform(X_test)
 
-        return _train_traditional(mt, X_train, Y_train, X_test, Y_test, req, progress)
+        return _train_traditional(mt, X_train, Y_train, X_test, Y_test, req, progress, job_id)
 
     # ── SMILES-based LSTM (LSTM+Bayesian, Standalone LSTM) ────────────────
     if mt in TRAINABLE_SMILES_LSTM:
@@ -520,6 +594,7 @@ def _train_single_model(
 def _train_traditional(
     mt: str, X_train, Y_train, X_test, Y_test,
     req: TrainRequest, progress: TrainProgress,
+    job_id: str | None = None,
 ) -> ModelResult:
 
     result = ModelResult(model_name=mt, model_type=mt)
@@ -535,7 +610,13 @@ def _train_traditional(
         y_tr = Y_train[:, target_i]
         y_te = Y_test[:, target_i]
 
-        progress.message = f"Training {mt} for {target_name} ({target_i+1}/{len(req.target_cols)})..."
+        if job_id:
+            _update_progress(
+                job_id,
+                message=f"Training {mt} for {target_name} ({target_i+1}/{len(req.target_cols)})...",
+                stage="training",
+                stage_progress=72.0 + (8.0 * (target_i / max(len(req.target_cols), 1))),
+            )
 
         # ── Decision Tree (matches Decision_Tree.ipynb) ─────────────────────
         if mt == "decision_tree":
@@ -547,7 +628,8 @@ def _train_traditional(
                 'min_samples_leaf': [1, 2, 3, 5],
                 'max_features': ['sqrt', 'log2', None],
             }
-            progress.message = f"RandomizedSearchCV for Decision Tree ({target_name})..."
+            if job_id:
+                _update_progress(job_id, message=f"RandomizedSearchCV for Decision Tree ({target_name})...")
             rscv = RandomizedSearchCV(
                 DecisionTreeRegressor(random_state=42), param_dist,
                 n_iter=50, cv=5, scoring='r2', n_jobs=-1,
@@ -568,7 +650,8 @@ def _train_traditional(
                     'max_features': [best.get('max_features', None)],
                 }
 
-            progress.message = f"GridSearchCV refinement for Decision Tree ({target_name})..."
+            if job_id:
+                _update_progress(job_id, message=f"GridSearchCV refinement for Decision Tree ({target_name})...")
             gs = GridSearchCV(
                 DecisionTreeRegressor(random_state=42),
                 _narrow_grid(bp), cv=5, scoring='r2', n_jobs=-1
@@ -585,7 +668,8 @@ def _train_traditional(
                 'max_depth': [10, 20, None],
                 'min_samples_split': [2, 5],
             }
-            progress.message = f"GridSearchCV for Random Forest ({target_name})..."
+            if job_id:
+                _update_progress(job_id, message=f"GridSearchCV for Random Forest ({target_name})...")
             gs = GridSearchCV(
                 RandomForestRegressor(random_state=42, n_jobs=-1),
                 param_grid, cv=5, scoring='r2', n_jobs=-1
@@ -623,7 +707,8 @@ def _train_traditional(
             best_score = -999
             best_name = None
             model = None
-            progress.message = f"Comparing ensemble methods for {target_name}..."
+            if job_id:
+                _update_progress(job_id, message=f"Comparing ensemble methods for {target_name}...")
 
             for name, cand in candidates.items():
                 cand.fit(X_train, y_tr)
@@ -635,7 +720,8 @@ def _train_traditional(
 
             # XGBoost GridSearchCV tuning (matching notebook)
             if has_xgb:
-                progress.message = f"XGBoost GridSearchCV for {target_name}..."
+                if job_id:
+                    _update_progress(job_id, message=f"XGBoost GridSearchCV for {target_name}...")
                 xgb_param = {
                     'n_estimators': [200, 400],
                     'max_depth': [3, 5],
@@ -666,6 +752,8 @@ def _train_traditional(
         # ── KFold(10) CV (all 3 notebooks use KFold(n_splits=10, shuffle=True, random_state=42)) ──
         kf = KFold(n_splits=10, shuffle=True, random_state=42)
         cv_scores = cross_val_score(model, X_train, y_tr, cv=kf, scoring='r2')
+        if job_id:
+            _update_progress(job_id, message=f"Cross-validating {mt} for {target_name} (10-fold)...")
         if target_i == 0:
             result.cv_r2_r1_mean = float(cv_scores.mean())
             result.cv_r2_r1_std = float(cv_scores.std())
@@ -675,6 +763,8 @@ def _train_traditional(
 
         # Predict
         y_pred = model.predict(X_test)
+        if job_id:
+            _update_progress(job_id, message=f"Predicting on held-out test set for {target_name}...")
 
         if job_id:
             _persist_model_artifact(
@@ -753,8 +843,11 @@ def _train_traditional(
             as_torch=True,
         )
     
-    # Generate Advanced Pyplot Analytics
-    result.diagnostic_plots = _generate_diagnostic_plots(result, result_feature_names)
+    # Generate optional analytics plots without failing core training results.
+    try:
+        result.diagnostic_plots = _generate_diagnostic_plots(result, result_feature_names)
+    except Exception:
+        result.diagnostic_plots = []
     
     return result
 
@@ -830,11 +923,20 @@ def _persist_model_artifact(
         else:
             import joblib
             joblib.dump(model, local_path)
-        s3_service.upload_user_model(
-            local_path,
-            owner,
-            f"{job_id}/{model_type}_{suffix}.{ext}",
-        )
+
+        # Never block training completion on remote object storage writes.
+        def _upload_async() -> None:
+            try:
+                s3_service.upload_user_model(
+                    local_path,
+                    owner,
+                    f"{job_id}/{model_type}_{suffix}.{ext}",
+                )
+            except Exception:
+                # Training/result generation should remain resilient if S3 upload fails.
+                pass
+
+        Thread(target=_upload_async, daemon=True).start()
     except Exception:
         # Keep training/result generation resilient if artifact persistence fails.
         pass
@@ -1313,13 +1415,20 @@ def _generate_diagnostic_plots(result: ModelResult, feature_names: list[str]) ->
     """Execute the comprehensive 20-plot Matplotlib analytical dashboard from user IPYNBs."""
     import io
     import base64
-    import matplotlib
-    matplotlib.use("Agg")  # CRITICAL for background headless running without GUI crashes
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    import scipy.stats as ss
-    from pandas.plotting import parallel_coordinates
     import warnings
+
+    # Plotting is optional. If visualization dependencies are missing,
+    # training should still succeed and return metrics/results.
+    try:
+        import matplotlib
+        matplotlib.use("Agg")  # CRITICAL for background headless running without GUI crashes
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        import scipy.stats as ss
+        from pandas.plotting import parallel_coordinates
+    except Exception:
+        return []
+
     warnings.filterwarnings('ignore')
 
     if not result.y_true_r1 or not result.y_pred_r1:

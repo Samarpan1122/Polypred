@@ -8,6 +8,7 @@ import json
 import pickle
 from pathlib import Path
 from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
@@ -42,6 +43,7 @@ def featurize_dataset(
     reduction: FeatureReductionMethod = FeatureReductionMethod.NONE,
     reduction_params: dict[str, Any] | None = None,
     owner_id: str | None = None,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> dict:
     """Featurize every row of a dataset and optionally reduce features."""
     df = load_dataframe(dataset_id, owner_id=owner_id)
@@ -64,6 +66,8 @@ def featurize_dataset(
     for row_num, (i, row) in enumerate(df.iterrows()):
         if row_num % 50 == 0:
             print(f"[FEATURIZE] Processing row {row_num+1}/{total_rows} ({100*row_num/max(total_rows,1):.0f}%)", flush=True)
+            if progress_callback is not None:
+                progress_callback(row_num + 1, total_rows, "featurizing")
         sa, sb = str(row[smiles_col_a]), str(row[smiles_col_b])
         parts = []
         ok = True
@@ -79,6 +83,8 @@ def featurize_dataset(
             valid_indices.append(i)
 
     print(f"[FEATURIZE] Done - {len(features)} valid out of {total_rows} rows", flush=True)
+    if progress_callback is not None:
+        progress_callback(total_rows, total_rows, "featurizing_done")
 
     if not features:
         return {"error": "No valid features could be computed"}

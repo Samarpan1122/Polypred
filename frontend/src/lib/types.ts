@@ -242,6 +242,8 @@ export interface TrainRequest {
 export interface TrainProgress {
   job_id: string;
   status: "queued" | "running" | "completed" | "failed";
+  stage?: string;
+  stage_progress?: number;
   current_model?: string;
   models_completed: number;
   total_models: number;

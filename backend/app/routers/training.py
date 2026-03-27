@@ -23,7 +23,10 @@ async def jobs():
 
 @router.get("/progress/{job_id}")
 async def progress(job_id: str):
-    p = get_progress(job_id)
+    try:
+        p = get_progress(job_id)
+    except Exception as exc:
+        return JSONResponse({"error": f"Progress unavailable: {exc}"}, 503)
     if p is None:
         return JSONResponse({"error": "Job not found"}, 404)
     return p.model_dump()

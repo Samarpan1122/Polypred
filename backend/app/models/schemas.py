@@ -165,6 +165,8 @@ class TrainRequest(BaseModel):
 class TrainProgress(BaseModel):
     job_id: str
     status: str  # queued, running, completed, failed
+    stage: str = "queued"
+    stage_progress: float = 0.0
     current_model: str | None = None
     current_epoch: int = 0
     total_epochs: int = 0

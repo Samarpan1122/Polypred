@@ -734,6 +734,30 @@ export default function TrainingPage() {
                 </div>
               )}
 
+              {/* Stage progress for non-epoch workflows */}
+              {progress.stage && progress.status === "running" && (
+                <div>
+                  <div className="mb-1 flex justify-between text-xs text-[var(--text-muted)]">
+                    <span>Stage: {progress.stage.replace(/_/g, " ")}</span>
+                    <span>
+                      {Math.max(
+                        0,
+                        Math.min(100, Math.round(progress.stage_progress ?? 0)),
+                      )}
+                      %
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-hover)]">
+                    <div
+                      className="h-full rounded-full bg-cyan-500 transition-all"
+                      style={{
+                        width: `${Math.max(0, Math.min(100, progress.stage_progress ?? 0))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Live loss chart */}
               {lossData.length > 2 && (
                 <div>
@@ -774,6 +798,22 @@ export default function TrainingPage() {
                       />
                     </LineChart>
                   </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Live activity panel for traditional ML where loss curves are not emitted */}
+              {lossData.length <= 2 && progress.status === "running" && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-hover)]/40 p-3">
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    Live Activity
+                  </p>
+                  <p className="text-xs text-white/90">
+                    {progress.message || "Working..."}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                    Traditional models usually do not emit per-epoch loss
+                    curves. Stage updates above are live.
+                  </p>
                 </div>
               )}
 
