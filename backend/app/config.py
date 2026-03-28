@@ -63,6 +63,13 @@ class Settings:
     # Encryption (AWS S3 managed encryption)
     STORAGE_PRESIGN_TTL_SECONDS: int = int(os.getenv("STORAGE_PRESIGN_TTL_SECONDS", "300"))
 
+    # Admin moderation
+    ADMIN_EMAILS: list[str] = [
+        email.strip().lower()
+        for email in os.getenv("ADMIN_EMAILS", "smohanty13@huskers.unl.edu").split(",")
+        if email.strip()
+    ]
+
     # All available model types
     MODEL_TYPES: list = [
         # Benchmark models (pre-trained weights in Specific_Models_Final/)

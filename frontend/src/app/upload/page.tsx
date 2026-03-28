@@ -238,10 +238,19 @@ export default function UploadPage() {
                       e.stopPropagation();
                       setShareTarget(ds);
                     }}
+                    disabled={
+                      ds.public_share_status === "pending_review" ||
+                      ds.public_share_status === "approved" ||
+                      ds.is_public
+                    }
                     className="inline-flex items-center gap-1 rounded-md border border-primary-500/40 bg-primary-500/10 px-2 py-1 text-[11px] text-primary-300 hover:bg-primary-500/20"
                   >
                     <Globe2 className="h-3.5 w-3.5" />
-                    Make Public
+                    {ds.public_share_status === "approved" || ds.is_public
+                      ? "Public"
+                      : ds.public_share_status === "pending_review"
+                        ? "Pending Review"
+                        : "Make Public"}
                   </button>
                 </div>
               </div>
@@ -392,6 +401,7 @@ export default function UploadPage() {
           assetType="dataset"
           assetId={shareTarget.id}
           assetName={shareTarget.name}
+          ownerId={shareTarget.owner_id}
           onClose={() => setShareTarget(null)}
         />
       )}

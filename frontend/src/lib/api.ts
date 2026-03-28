@@ -20,6 +20,9 @@ import type {
   PublicShareRequestPayload,
   PublicShareRequestResponse,
   UserFilesResponse,
+  PublicCatalogResponse,
+  AdminOverviewResponse,
+  AdminPublicShareRequestsResponse,
 } from "./types";
 
 const getApiBase = () => {
@@ -238,6 +241,47 @@ export async function submitPublicShareRequest(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function getPublicCatalog(): Promise<PublicCatalogResponse> {
+  return fetchJson("/api/public-share/catalog");
+}
+
+export async function getAdminOverview(
+  adminEmail: string,
+): Promise<AdminOverviewResponse> {
+  return fetchJson(
+    `/api/public-share/admin/overview?admin_email=${encodeURIComponent(adminEmail)}`,
+  );
+}
+
+export async function listAdminPublicShareRequests(
+  adminEmail: string,
+  status: "all" | "pending_review" | "approved" | "rejected" = "all",
+): Promise<AdminPublicShareRequestsResponse> {
+  const query = new URLSearchParams({
+    admin_email: adminEmail,
+    status,
+  });
+  return fetchJson(`/api/public-share/admin/requests?${query.toString()}`);
+}
+
+export async function reviewPublicShareRequest(
+  adminEmail: string,
+  requestId: string,
+  decision: "approved" | "rejected",
+  reviewNotes = "",
+): Promise<{ ok: boolean }> {
+  return fetchJson(
+    `/api/public-share/admin/requests/${encodeURIComponent(requestId)}/review?admin_email=${encodeURIComponent(adminEmail)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        decision,
+        review_notes: reviewNotes,
+      }),
+    },
+  );
 }
 
 // ─── Storage ───────────────────────────────────────────

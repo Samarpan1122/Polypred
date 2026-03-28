@@ -15,10 +15,11 @@ import {
   Layers,
   Dumbbell,
   BarChart3,
-  FlaskRound,
   Info,
   LogOut,
   LogIn,
+  Globe2,
+  Shield,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { label: "Results", href: "/results", icon: BarChart3 },
   { label: "Predict", href: "/predict", icon: Beaker },
   { label: "Models", href: "/models", icon: Cpu },
+  { label: "Public Assets", href: "/public-datasets-models", icon: Globe2 },
 ];
 
 export default function Sidebar() {
@@ -92,6 +94,25 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        {user?.isAdmin ? (
+          <>
+            <p className="px-3 pb-1 pt-4 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+              Admin
+            </p>
+            <Link
+              href="/admin"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname === "/admin"
+                  ? "bg-primary-600/20 text-primary-400"
+                  : "text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-white",
+              )}
+            >
+              <Shield className="h-4 w-4" />
+              Admin Console
+            </Link>
+          </>
+        ) : null}
       </nav>
 
       {/* Footer */}

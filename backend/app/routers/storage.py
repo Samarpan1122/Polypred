@@ -56,6 +56,8 @@ def list_user_files(
                 ds_name = ds.get("filename") or ds.get("name") or f"dataset_{ds.get('id', '')}.csv"
                 files.append(
                     {
+                        "asset_id": ds.get("id"),
+                        "asset_type": "dataset",
                         "key": ds.get("s3_key") or f"users/{owner_slug}/datasets/{ds.get('id')}/{ds_name}",
                         "name": ds_name,
                         "section": "datasets",
@@ -65,6 +67,8 @@ def list_user_files(
                         "storage_class": "S3" if ds.get("s3_synced") else "LOCAL",
                         "encryption": "AES256",
                         "downloadable": bool(ds.get("s3_synced") and ds.get("s3_key")),
+                        "is_public": bool(ds.get("is_public", False)),
+                        "public_share_status": ds.get("public_share_status", "private"),
                     }
                 )
         except Exception as exc:
@@ -87,6 +91,10 @@ def list_user_files(
             part = s3_service.list_user_files(owner_id=owner_id, section=target, max_keys=remaining)
             for item in part:
                 item["downloadable"] = True
+                item["asset_id"] = item.get("key")
+                item["asset_type"] = "model" if item.get("section") == "models" else item.get("section")
+                item["is_public"] = bool(item.get("is_public", False))
+                item["public_share_status"] = item.get("public_share_status", "private")
             files.extend(part)
             remaining = max(0, max_keys - len(files))
         except Exception as exc:

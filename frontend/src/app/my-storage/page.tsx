@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { getUserDownloadUrl, listUserFiles } from "@/lib/api";
-import type { StorageFileItem } from "@/lib/types";
+import type { PublicShareAssetType, StorageFileItem } from "@/lib/types";
 import {
   Download,
   FolderLock,
@@ -12,9 +12,12 @@ import {
   Database,
   AlertCircle,
   FolderOpen,
+  Globe2,
+  Clock3,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import PublicShareRequestModal from "@/components/PublicShareRequestModal";
 
 export default function MyStoragePage() {
   const { user, loading } = useAuth();
@@ -27,6 +30,11 @@ export default function MyStoragePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [encryptionMode, setEncryptionMode] = useState("unknown");
+  const [shareTarget, setShareTarget] = useState<{
+    assetType: PublicShareAssetType;
+    assetId: string;
+    assetName: string;
+  } | null>(null);
 
   const loadFiles = async () => {
     if (!ownerId) return;
@@ -199,6 +207,8 @@ export default function MyStoragePage() {
           <div className="divide-y divide-[var(--border)]">
             {files.map((item) => {
               const encrypted = item.encryption === "AES256";
+              const canRequestPublic =
+                item.section === "datasets" || item.section === "models";
               return (
                 <div
                   key={item.key}
@@ -220,6 +230,16 @@ export default function MyStoragePage() {
                         <span className="text-[var(--text-muted)]">
                           {item.storage_class}
                         </span>
+                        {item.public_share_status === "approved" ||
+                        item.is_public ? (
+                          <span className="rounded px-1.5 py-0.5 font-bold bg-green-500/10 text-green-300">
+                            PUBLIC
+                          </span>
+                        ) : item.public_share_status === "pending_review" ? (
+                          <span className="rounded px-1.5 py-0.5 font-bold bg-amber-500/10 text-amber-300">
+                            PENDING REVIEW
+                          </span>
+                        ) : null}
                         <span
                           className={`rounded px-1.5 py-0.5 font-bold ${encrypted ? "bg-green-500/10 text-green-300" : "bg-amber-500/10 text-amber-300"}`}
                         >
@@ -228,25 +248,70 @@ export default function MyStoragePage() {
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => onDownload(item.key)}
-                    disabled={item.downloadable === false}
-                    className="inline-flex items-center gap-2 rounded border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                    title={
-                      item.downloadable === false
-                        ? "This file is still syncing to S3"
-                        : "Download"
-                    }
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Download
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {canRequestPublic ? (
+                      <button
+                        onClick={() =>
+                          setShareTarget({
+                            assetType: item.section === "datasets" ? "dataset" : "model",
+                            assetId: item.asset_id || item.key,
+                            assetName: item.name,
+                          })
+                        }
+                        disabled={
+                          item.public_share_status === "pending_review" ||
+                          item.public_share_status === "approved" ||
+                          item.is_public
+                        }
+                        className="inline-flex items-center gap-2 rounded border border-primary-500/40 bg-primary-500/10 px-2.5 py-1.5 text-xs font-semibold text-primary-200 hover:bg-primary-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {item.public_share_status === "pending_review" ? (
+                          <Clock3 className="h-3.5 w-3.5" />
+                        ) : (
+                          <Globe2 className="h-3.5 w-3.5" />
+                        )}
+                        {item.public_share_status === "approved" || item.is_public
+                          ? "Public"
+                          : item.public_share_status === "pending_review"
+                            ? "Pending"
+                            : "Make Public"}
+                      </button>
+                    ) : null}
+                    <button
+                      onClick={() => onDownload(item.key)}
+                      disabled={item.downloadable === false}
+                      className="inline-flex items-center gap-2 rounded border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      title={
+                        item.downloadable === false
+                          ? "This file is still syncing to S3"
+                          : "Download"
+                      }
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {shareTarget ? (
+        <PublicShareRequestModal
+          isOpen={!!shareTarget}
+          assetType={shareTarget.assetType}
+          assetId={shareTarget.assetId}
+          assetName={shareTarget.assetName}
+          ownerId={ownerId}
+          ownerEmail={user.email}
+          onClose={() => {
+            setShareTarget(null);
+            loadFiles();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

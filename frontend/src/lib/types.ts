@@ -96,12 +96,15 @@ export const MODEL_CATEGORY_COLORS: Record<string, string> = {
 export interface DatasetInfo {
   id: string;
   name: string;
+  owner_id?: string;
   rows: number;
   cols: number;
   columns: string[];
   smiles_columns: string[];
   target_columns: string[];
   uploaded_at: string;
+  is_public?: boolean;
+  public_share_status?: string;
 }
 
 export interface DatasetPreview {
@@ -134,6 +137,8 @@ export interface PublicShareRequestPayload {
   asset_type: PublicShareAssetType;
   asset_id: string;
   asset_name: string;
+  owner_id?: string;
+  owner_email?: string;
   requester_name: string;
   institutional_email: string;
   affiliation: string;
@@ -165,6 +170,91 @@ export interface PublicShareRequestResponse {
   request_id: string;
   status: string;
   message: string;
+}
+
+export interface PublicCatalogItem {
+  request_id: string;
+  asset_type: PublicShareAssetType;
+  asset_id: string;
+  asset_name: string;
+  owner_id?: string;
+  requester_name: string;
+  affiliation: string;
+  country: string;
+  research_title: string;
+  research_area: string;
+  research_summary: string;
+  intended_use: string;
+  citation_text?: string;
+  profile_url?: string;
+  submitted_at: string;
+  approved_at?: string | null;
+}
+
+export interface PublicCatalogResponse {
+  ok: boolean;
+  datasets: PublicCatalogItem[];
+  models: PublicCatalogItem[];
+  summary: {
+    datasets: number;
+    models: number;
+    total: number;
+  };
+}
+
+export interface PublicShareRequestRecord extends PublicShareRequestPayload {
+  request_id: string;
+  status: "pending_review" | "approved" | "rejected";
+  submitted_at: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  review_notes?: string;
+}
+
+export interface AdminPublicShareRequestsResponse {
+  ok: boolean;
+  requests: PublicShareRequestRecord[];
+  summary: {
+    total: number;
+    pending_review: number;
+    approved: number;
+    rejected: number;
+  };
+}
+
+export interface AdminOverviewResponse {
+  ok: boolean;
+  admin_emails: string[];
+  stats: {
+    users: number;
+    datasets: number;
+    models: number;
+    share_requests: number;
+    pending_requests: number;
+    approved_requests: number;
+    rejected_requests: number;
+    public_datasets: number;
+    public_models: number;
+  };
+  recent_requests: Array<{
+    request_id: string;
+    asset_type: PublicShareAssetType;
+    asset_id: string;
+    asset_name: string;
+    owner_id?: string;
+    owner_email?: string;
+    requester_name: string;
+    institutional_email: string;
+    affiliation: string;
+    country: string;
+    research_title: string;
+    research_area: string;
+    status: string;
+    submitted_at: string;
+    reviewed_at?: string | null;
+    reviewed_by?: string | null;
+    review_notes?: string;
+  }>;
 }
 
 // ─── Feature types ──────────────────────────────────────
@@ -328,6 +418,8 @@ export interface StorageEncryptionPosture {
 }
 
 export interface StorageFileItem {
+  asset_id?: string;
+  asset_type?: string;
   key: string;
   name: string;
   section: "datasets" | "models" | "results" | "requests";
@@ -337,6 +429,8 @@ export interface StorageFileItem {
   storage_class: string;
   encryption: string;
   downloadable?: boolean;
+  is_public?: boolean;
+  public_share_status?: string;
 }
 
 export interface UserFilesResponse {

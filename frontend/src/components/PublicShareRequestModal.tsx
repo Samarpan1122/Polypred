@@ -14,6 +14,8 @@ interface PublicShareRequestModalProps {
   assetType: PublicShareAssetType;
   assetId: string;
   assetName: string;
+  ownerId?: string;
+  ownerEmail?: string;
   onClose: () => void;
 }
 
@@ -49,6 +51,8 @@ export default function PublicShareRequestModal({
   assetType,
   assetId,
   assetName,
+  ownerId,
+  ownerEmail,
   onClose,
 }: PublicShareRequestModalProps) {
   const { user } = useAuth();
@@ -86,6 +90,8 @@ export default function PublicShareRequestModal({
         asset_type: assetType,
         asset_id: assetId,
         asset_name: assetName,
+        owner_id: ownerId || user?.id || "",
+        owner_email: ownerEmail || user?.email || "",
         requester_name: form.requester_name,
         institutional_email: form.institutional_email,
         affiliation: form.affiliation,

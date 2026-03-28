@@ -134,6 +134,8 @@ def save_dataset(
         "preview": preview_df.replace({np.nan: None}).to_dict(orient="records"),
         "s3_synced": False,
         "s3_sync_status": "pending" if sync_to_s3 else "queued",
+        "is_public": False,
+        "public_share_status": "private",
     }
 
     meta_path = save_dir / "meta.json"
@@ -248,6 +250,7 @@ def list_datasets(owner_id: str | None = None) -> list[dict]:
                 "id": meta["id"],
                 "name": meta.get("name", meta.get("filename", "dataset")),
                 "filename": meta.get("filename", meta.get("name", "dataset")),
+                "owner_id": meta.get("owner_id", owner_id),
                 "rows": meta["rows"],
                 "cols": meta.get("cols", len(meta.get("columns", []))),
                 "columns": meta.get("columns", []),
@@ -257,6 +260,8 @@ def list_datasets(owner_id: str | None = None) -> list[dict]:
                 "s3_synced": bool(meta.get("s3_synced", False)),
                 "s3_key": meta.get("s3_key"),
                 "s3_sync_status": meta.get("s3_sync_status", "unknown"),
+                "is_public": bool(meta.get("is_public", False)),
+                "public_share_status": meta.get("public_share_status", "private"),
             })
     return results
 
